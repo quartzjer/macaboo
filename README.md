@@ -1,48 +1,46 @@
 # Macaboo
 
-Macaboo is a command-line tool written in Python for macOS. It allows you to select
-an application window and stream just that app to a web page.
+Macaboo is a small command-line utility written in Python for macOS. It lets you
+pick a running GUI application and capture a screenshot of its first on-screen
+window.
 
 ## Features
 
-- Choose a target application by name or window title
-- Stream the selected window to a web browser using MJPEG
-- Lightweight server for local streaming
+- Lists all running GUI applications
+- Prompts you to select which app to capture
+- Saves a PNG image of the selected application's window
 
 ## Requirements
 
 - macOS 10.15 or later
 - Python 3.9 or newer
-- Homebrew for installing dependencies
-- `ffmpeg` (install with `brew install ffmpeg`)
+- PyObjC libraries (`pyobjc-framework-Quartz`, `pyobjc-framework-Cocoa`)
 
 ## Installation
 
-Clone the repository and install Python dependencies:
+Create a virtual environment and install dependencies:
 
 ```bash
 python3 -m venv venv
 source venv/bin/activate
-pip install pyobjc-framework-Quartz Pillow aiohttp
+pip install pyobjc-framework-Quartz pyobjc-framework-Cocoa
 ```
 
 ## Usage
 
-Run the CLI and specify the application you want to stream:
+Run the tool directly after installing the package:
 
 ```bash
-python macaboo.py --app "Safari" --port 8080
+python -m macaboo
 ```
 
-Then open `http://localhost:8080` in your web browser to view the stream.
+You can optionally specify an output filename:
 
-## How It Works
-
-`macaboo.py` uses the Quartz APIs (via PyObjC) to capture frames from the chosen
-application window. Frames are encoded as JPEG and served over HTTP using
-`aiohttp`. The result is an MJPEG stream that you can view in any modern browser.
+```bash
+macaboo --output screenshot.png
+```
 
 ## License
 
-This project is licensed under the Apache 2.0 License. See the [LICENSE](LICENSE)
-file for details.
+This project is licensed under the Apache 2.0 License. See the
+[LICENSE](LICENSE) file for details.
