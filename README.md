@@ -2,7 +2,8 @@
 
 Macaboo is a small command-line utility written in Python for macOS. It lets you
 pick a running GUI application and capture a screenshot of its first on-screen
-window.
+window. After selecting an application, it can start a small web server that
+serves the latest screenshot on demand.
 
 ## Features
 
@@ -28,13 +29,16 @@ pip install pyobjc-framework-Quartz pyobjc-framework-Cocoa
 
 ## Usage
 
-Run the tool directly after installing the package:
+Run the tool directly after installing the package. It will prompt you to select
+a running application and then start a web server on port 6222:
 
 ```bash
 python -m macaboo
+# open http://localhost:6222 in your browser
 ```
 
-You can optionally specify an output filename:
+You can optionally specify an output filename to save a single screenshot before
+the server starts:
 
 ```bash
 macaboo --output screenshot.png

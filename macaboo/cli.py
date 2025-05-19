@@ -10,15 +10,25 @@ from .screenshot import (
     get_first_window_of_app,
     capture_window,
 )
+from .server import serve_window
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description="Capture a screenshot of a running application window.")
+    parser = argparse.ArgumentParser(
+        description="Capture a screenshot of a running application window and serve it on the web."
+    )
     parser.add_argument(
         "--output",
         "-o",
         default=None,
         help="Output PNG file (default: '<AppName>.png')",
+    )
+    parser.add_argument(
+        "--port",
+        "-p",
+        type=int,
+        default=6222,
+        help="Port to serve the web page on (default: 6222)",
     )
     args = parser.parse_args(argv)
 
@@ -34,13 +44,13 @@ def main(argv: list[str] | None = None) -> int:
         print(f"No on-screen window found for {chosen_app.localizedName()}.")
         return 1
 
-    if args.output is None:
-        output_path = f"{chosen_app.localizedName()}.png"
-    else:
+    if args.output is not None:
         output_path = args.output
+        capture_window(window_info, output_path)
+        print(f"Screenshot saved to {output_path}")
 
-    capture_window(window_info, output_path)
-    print(f"Screenshot saved to {output_path}")
+    print("Starting web server. Press Ctrl+C to stop.")
+    serve_window(window_info, args.port)
     return 0
 
 
