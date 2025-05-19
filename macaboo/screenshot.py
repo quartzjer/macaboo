@@ -1,0 +1,88 @@
+"""Core functionality for listing applications and capturing windows."""
+
+from __future__ import annotations
+
+import sys
+from typing import List, Optional
+
+import Quartz
+import LaunchServices
+from Cocoa import NSURL, NSWorkspace
+from AppKit import NSApplicationActivationPolicyRegular
+
+__all__ = [
+    "list_running_apps",
+    "choose_app",
+    "get_first_window_of_app",
+    "capture_window",
+]
+
+
+def list_running_apps():
+    """Return a list of regular GUI applications currently running."""
+    apps = NSWorkspace.sharedWorkspace().runningApplications()
+    regular_apps = [
+        app
+        for app in apps
+        if app.localizedName()
+        and app.activationPolicy() == NSApplicationActivationPolicyRegular
+    ]
+    regular_apps.sort(key=lambda app: app.localizedName())
+    return regular_apps
+
+
+def choose_app(apps):
+    """Prompt the user to select an app from ``apps``."""
+    print("Available Applications:")
+    for i, app in enumerate(apps):
+        print(f"{i}: {app.localizedName()} (PID: {app.processIdentifier()})")
+    try:
+        choice = int(input("Choose an application by index: "))
+    except ValueError:
+        print("Invalid input. Please enter a number.")
+        sys.exit(1)
+    if choice < 0 or choice >= len(apps):
+        print("Invalid choice. Exiting.")
+        sys.exit(1)
+    return apps[choice]
+
+
+def get_first_window_of_app(pid: int) -> Optional[dict]:
+    """Return the first on-screen window for a given process id."""
+    window_list = Quartz.CGWindowListCopyWindowInfo(
+        Quartz.kCGWindowListOptionOnScreenOnly, Quartz.kCGNullWindowID
+    )
+    for window in window_list:
+        if (
+            window.get("kCGWindowOwnerPID") == pid
+            and window.get("kCGWindowLayer") == 0
+        ):
+            return window
+    return None
+
+
+def capture_window(window: dict, output_path: str) -> None:
+    """Capture ``window`` and save it to ``output_path`` as PNG."""
+    window_id = window.get("kCGWindowNumber")
+    image = Quartz.CGWindowListCreateImage(
+        Quartz.CGRectInfinite,
+        Quartz.kCGWindowListOptionIncludingWindow,
+        window_id,
+        Quartz.kCGWindowImageDefault,
+    )
+    if image is None:
+        print("Failed to capture image.")
+        sys.exit(1)
+
+    url = NSURL.fileURLWithPath_(output_path)
+    dest = Quartz.CGImageDestinationCreateWithURL(
+        url, LaunchServices.kUTTypePNG, 1, None
+    )
+    properties = {
+        Quartz.kCGImagePropertyDPIWidth: 72,
+        Quartz.kCGImagePropertyDPIHeight: 72,
+    }
+    Quartz.CGImageDestinationAddImage(dest, image, properties)
+    if not Quartz.CGImageDestinationFinalize(dest):
+        print("Failed to finalize image destination.")
+        sys.exit(1)
