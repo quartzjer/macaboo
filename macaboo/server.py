@@ -1,51 +1,46 @@
 from __future__ import annotations
 
-"""Simple HTTP server to display screenshots."""
+"""Async HTTP server to display screenshots."""
 
-from http.server import BaseHTTPRequestHandler, HTTPServer
+import asyncio
 from pathlib import Path
-from time import time
 
-from .screenshot import capture_window
+from aiohttp import web
+
+from .screenshot import capture_window_bytes
 
 __all__ = ["serve_window"]
+
+TEMPLATE_PATH = Path(__file__).parent / "templates" / "index.html"
 
 
 def serve_window(window_info: dict, port: int = 6222) -> None:
     """Start a blocking HTTP server showing screenshots of ``window_info``."""
 
-    screenshot_path = Path("latest.png")
+    async def index(_: web.Request) -> web.Response:
+        html = TEMPLATE_PATH.read_text()
+        return web.Response(text=html, content_type="text/html")
 
-    class ScreenshotHandler(BaseHTTPRequestHandler):
-        def do_GET(self) -> None:  # noqa: D401
-            if self.path.startswith("/screenshot.png"):
-                capture_window(window_info, str(screenshot_path))
-                try:
-                    data = screenshot_path.read_bytes()
-                except FileNotFoundError:
-                    self.send_error(404)
-                    return
-                self.send_response(200)
-                self.send_header("Content-Type", "image/png")
-                self.send_header("Cache-Control", "no-cache, no-store, must-revalidate")
-                self.end_headers()
-                self.wfile.write(data)
-            else:
-                self.send_response(200)
-                self.send_header("Content-Type", "text/html")
-                self.send_header("Cache-Control", "no-cache, no-store, must-revalidate")
-                self.end_headers()
-                ts = int(time())
-                html = (
-                    f"<html><body>"
-                    f"<img src='/screenshot.png?{ts}' alt='screenshot'/>"
-                    f"</body></html>"
-                )
-                self.wfile.write(html.encode("utf-8"))
+    async def screenshot(_: web.Request) -> web.Response:
+        data = capture_window_bytes(window_info)
+        headers = {"Cache-Control": "no-cache, no-store, must-revalidate"}
+        return web.Response(body=data, content_type="image/png", headers=headers)
 
-    server = HTTPServer(("0.0.0.0", port), ScreenshotHandler)
+    app = web.Application()
+    app.router.add_get("/", index)
+    app.router.add_get("/screenshot.png", screenshot)
+
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+    runner = web.AppRunner(app)
+    loop.run_until_complete(runner.setup())
+    site = web.TCPSite(runner, "0.0.0.0", port)
+    loop.run_until_complete(site.start())
     print(f"Serving on http://localhost:{port}")
     try:
-        server.serve_forever()
+        loop.run_forever()
     except KeyboardInterrupt:
         pass
+    finally:
+        loop.run_until_complete(runner.cleanup())
+        loop.close()

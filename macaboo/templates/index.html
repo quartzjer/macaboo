@@ -1,0 +1,17 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Macaboo Screenshot</title>
+</head>
+<body>
+  <img id="shot" src="/screenshot.png" alt="screenshot"/>
+  <script>
+    function reload() {
+      const img = document.getElementById('shot');
+      img.src = '/screenshot.png?' + Date.now();
+    }
+    setInterval(reload, 1000);
+  </script>
+</body>
+</html>

@@ -16,6 +16,7 @@ serves the latest screenshot on demand.
 - macOS 10.15 or later
 - Python 3.9 or newer
 - PyObjC libraries (`pyobjc-framework-Quartz`, `pyobjc-framework-Cocoa`)
+- `aiohttp` for the built-in web server
 
 ## Installation
 
@@ -24,7 +25,7 @@ Create a virtual environment and install dependencies:
 ```bash
 python3 -m venv venv
 source venv/bin/activate
-pip install pyobjc-framework-Quartz pyobjc-framework-Cocoa
+pip install pyobjc-framework-Quartz pyobjc-framework-Cocoa aiohttp
 ```
 
 ## Usage
