@@ -1,51 +1,74 @@
 from __future__ import annotations
 
-"""Simple HTTP server to display screenshots."""
+"""HTTP server utilities for displaying screenshots."""
 
-from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
 from time import time
+from typing import Optional
+import ssl
+from aiohttp import web
 
 from .screenshot import capture_window
 
-__all__ = ["serve_window"]
+__all__ = ["make_server", "serve_window"]
+
+# Path to the HTML template used for the index page
+HTML_TEMPLATE = Path(__file__).with_name("templates").joinpath("index.html")
 
 
-def serve_window(window_info: dict, port: int = 6222) -> None:
-    """Start a blocking HTTP server showing screenshots of ``window_info``."""
+def make_server(
+    window_info: dict,
+    *,
+    tls: bool = False,
+    certfile: Optional[str] = None,
+    keyfile: Optional[str] = None,
+) -> web.Application:
+    """Create an aiohttp application serving screenshots of ``window_info``."""
 
     screenshot_path = Path("latest.png")
 
-    class ScreenshotHandler(BaseHTTPRequestHandler):
-        def do_GET(self) -> None:  # noqa: D401
-            if self.path.startswith("/screenshot.png"):
-                capture_window(window_info, str(screenshot_path))
-                try:
-                    data = screenshot_path.read_bytes()
-                except FileNotFoundError:
-                    self.send_error(404)
-                    return
-                self.send_response(200)
-                self.send_header("Content-Type", "image/png")
-                self.send_header("Cache-Control", "no-cache, no-store, must-revalidate")
-                self.end_headers()
-                self.wfile.write(data)
-            else:
-                self.send_response(200)
-                self.send_header("Content-Type", "text/html")
-                self.send_header("Cache-Control", "no-cache, no-store, must-revalidate")
-                self.end_headers()
-                ts = int(time())
-                html = (
-                    f"<html><body>"
-                    f"<img src='/screenshot.png?{ts}' alt='screenshot'/>"
-                    f"</body></html>"
-                )
-                self.wfile.write(html.encode("utf-8"))
+    async def screenshot(_: web.Request) -> web.Response:
+        capture_window(window_info, str(screenshot_path))
+        try:
+            data = screenshot_path.read_bytes()
+        except FileNotFoundError:
+            raise web.HTTPNotFound()
+        return web.Response(body=data, content_type="image/png")
 
-    server = HTTPServer(("0.0.0.0", port), ScreenshotHandler)
-    print(f"Serving on http://localhost:{port}")
-    try:
-        server.serve_forever()
-    except KeyboardInterrupt:
-        pass
+    async def index(_: web.Request) -> web.Response:
+        ts = int(time())
+        html = HTML_TEMPLATE.read_text().replace("{{ts}}", str(ts))
+        return web.Response(text=html, content_type="text/html")
+
+    app = web.Application()
+    app.router.add_get("/", index)
+    app.router.add_get("/screenshot.png", screenshot)
+    if tls:
+        if certfile is None:
+            raise ValueError("certfile is required when tls is True")
+        context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+        context.load_cert_chain(certfile, keyfile)
+        app["ssl_context"] = context
+    return app
+
+
+def serve_window(
+    window_info: dict,
+    port: int = 6222,
+    *,
+    tls: bool = False,
+    certfile: Optional[str] = None,
+    keyfile: Optional[str] = None,
+) -> None:
+    """Start a blocking HTTP server showing screenshots of ``window_info``."""
+
+    app = make_server(
+        window_info,
+        tls=tls,
+        certfile=certfile,
+        keyfile=keyfile,
+    )
+    ssl_context = app.get("ssl_context")
+    scheme = "https" if tls else "http"
+    print(f"Serving on {scheme}://localhost:{port}")
+    web.run_app(app, host="0.0.0.0", port=port, ssl_context=ssl_context)

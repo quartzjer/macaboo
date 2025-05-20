@@ -8,6 +8,7 @@ version = "0.2.0"
 description = "CLI utilities for capturing macOS application windows"
 authors = [ { name="Macaboo" } ]
 requires-python = ">=3.9"
+dependencies = ["aiohttp"]
 
 [project.scripts]
 macaboo = "macaboo.cli:main"

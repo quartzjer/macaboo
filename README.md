@@ -24,7 +24,7 @@ Create a virtual environment and install dependencies:
 ```bash
 python3 -m venv venv
 source venv/bin/activate
-pip install pyobjc-framework-Quartz pyobjc-framework-Cocoa
+pip install pyobjc-framework-Quartz pyobjc-framework-Cocoa aiohttp
 ```
 
 ## Usage
