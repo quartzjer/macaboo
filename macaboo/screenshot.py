@@ -8,6 +8,7 @@ from typing import List, Optional
 import Quartz
 import LaunchServices
 from Cocoa import NSURL, NSWorkspace
+from Foundation import NSMutableData
 from AppKit import NSApplicationActivationPolicyRegular
 
 __all__ = [
@@ -15,6 +16,7 @@ __all__ = [
     "choose_app",
     "get_first_window_of_app",
     "capture_window",
+    "capture_window_bytes",
 ]
 
 
@@ -86,3 +88,31 @@ def capture_window(window: dict, output_path: str) -> None:
     if not Quartz.CGImageDestinationFinalize(dest):
         print("Failed to finalize image destination.")
         sys.exit(1)
+
+
+def capture_window_bytes(window: dict) -> bytes:
+    """Capture ``window`` and return PNG bytes."""
+    window_id = window.get("kCGWindowNumber")
+    image = Quartz.CGWindowListCreateImage(
+        Quartz.CGRectInfinite,
+        Quartz.kCGWindowListOptionIncludingWindow,
+        window_id,
+        Quartz.kCGWindowImageDefault,
+    )
+    if image is None:
+        print("Failed to capture image.")
+        sys.exit(1)
+
+    data = NSMutableData.alloc().init()
+    dest = Quartz.CGImageDestinationCreateWithData(
+        data, LaunchServices.kUTTypePNG, 1, None
+    )
+    properties = {
+        Quartz.kCGImagePropertyDPIWidth: 72,
+        Quartz.kCGImagePropertyDPIHeight: 72,
+    }
+    Quartz.CGImageDestinationAddImage(dest, image, properties)
+    if not Quartz.CGImageDestinationFinalize(dest):
+        print("Failed to finalize image destination.")
+        sys.exit(1)
+    return bytes(data)
