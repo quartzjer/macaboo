@@ -6,7 +6,6 @@ import sys
 from typing import List, Optional
 
 import Quartz
-import LaunchServices
 from Cocoa import NSURL, NSWorkspace
 from Foundation import NSMutableData
 from AppKit import NSApplicationActivationPolicyRegular
@@ -78,7 +77,7 @@ def capture_window(window: dict, output_path: str) -> None:
 
     url = NSURL.fileURLWithPath_(output_path)
     dest = Quartz.CGImageDestinationCreateWithURL(
-        url, LaunchServices.kUTTypePNG, 1, None
+        url, "public.png", 1, None
     )
     properties = {
         Quartz.kCGImagePropertyDPIWidth: 72,
@@ -105,7 +104,7 @@ def capture_window_bytes(window: dict) -> bytes:
 
     data = NSMutableData.alloc().init()
     dest = Quartz.CGImageDestinationCreateWithData(
-        data, LaunchServices.kUTTypePNG, 1, None
+        data, "public.png", 1, None
     )
     properties = {
         Quartz.kCGImagePropertyDPIWidth: 72,

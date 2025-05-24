@@ -3,6 +3,21 @@
 <head>
   <meta charset="utf-8" />
   <title>Macaboo Screenshot</title>
+  <style>
+    body {
+      margin: 0;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      background-color: #f0f0f0; /* Optional: to see the image boundaries */
+    }
+    #shot {
+      max-width: 100%;
+      max-height: 100vh;
+      object-fit: contain;
+    }
+  </style>
 </head>
 <body>
   <img id="shot" src="/screenshot.png" alt="screenshot"/>
