@@ -7,6 +7,8 @@ from pathlib import Path
 
 from aiohttp import web
 
+from .events import click_at, scroll
+
 from .screenshot import capture_window_bytes
 
 __all__ = ["serve_window"]
@@ -26,9 +28,25 @@ def serve_window(window_info: dict, port: int = 6222) -> None:
         headers = {"Cache-Control": "no-cache, no-store, must-revalidate"}
         return web.Response(body=data, content_type="image/png", headers=headers)
 
+    async def click(request: web.Request) -> web.Response:
+        data = await request.json()
+        x = int(data.get("x", 0))
+        y = int(data.get("y", 0))
+        click_at(window_info, x, y)
+        return web.Response(text="ok")
+
+    async def handle_scroll(request: web.Request) -> web.Response:
+        data = await request.json()
+        dx = int(data.get("dx", 0))
+        dy = int(data.get("dy", 0))
+        scroll(window_info, dx, dy)
+        return web.Response(text="ok")
+
     app = web.Application()
     app.router.add_get("/", index)
     app.router.add_get("/screenshot.png", screenshot)
+    app.router.add_post("/click", click)
+    app.router.add_post("/scroll", handle_scroll)
 
     loop = asyncio.new_event_loop()
     asyncio.set_event_loop(loop)

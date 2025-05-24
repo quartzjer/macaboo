@@ -27,6 +27,33 @@
       img.src = '/screenshot.png?' + Date.now();
     }
     setInterval(reload, 1000);
+
+    function imageCoords(event) {
+      const img = document.getElementById('shot');
+      const rect = img.getBoundingClientRect();
+      const x = (event.clientX - rect.left) * (img.naturalWidth / rect.width);
+      const y = (event.clientY - rect.top) * (img.naturalHeight / rect.height);
+      return {x: Math.round(x), y: Math.round(y)};
+    }
+
+    document.getElementById('shot').addEventListener('click', async (e) => {
+      const pos = imageCoords(e);
+      await fetch('/click', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(pos)
+      });
+    });
+
+    document.getElementById('shot').addEventListener('wheel', async (e) => {
+      e.preventDefault();
+      const payload = { dx: e.deltaX, dy: e.deltaY };
+      await fetch('/scroll', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+    });
   </script>
 </body>
 </html>
