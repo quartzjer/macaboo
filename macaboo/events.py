@@ -14,7 +14,7 @@ def _window_origin(window_info: dict) -> tuple[int, int]:
 
 
 def click_at(window_info: dict, x: int, y: int) -> None:
-    """Post a left mouse click at ``(x, y)`` relative to ``window_info``."""
+    """Post a left mouse click at ``(x, y)`` to ``window_info``'s process."""
     origin_x, origin_y = _window_origin(window_info)
     abs_x = origin_x + x
     abs_y = origin_y + y
@@ -32,12 +32,14 @@ def click_at(window_info: dict, x: int, y: int) -> None:
         point,
         Quartz.kCGMouseButtonLeft,
     )
-    Quartz.CGEventPost(Quartz.kCGHIDEventTap, down)
-    Quartz.CGEventPost(Quartz.kCGHIDEventTap, up)
+    pid = int(window_info.get("kCGWindowOwnerPID", 0))
+    Quartz.CGEventPostToPid(pid, down)
+    Quartz.CGEventPostToPid(pid, up)
+    print(f"Clicked at ({abs_x}, {abs_y}) in window {window_info.get('kCGWindowName', 'Unknown')}")
 
 
 def scroll(window_info: dict, delta_x: int, delta_y: int) -> None:
-    """Post a scroll event relative to ``window_info``."""
+    """Post a scroll event to ``window_info``'s process."""
     # ``window_info`` is unused but kept for symmetry and future use
     event = Quartz.CGEventCreateScrollWheelEvent(
         None,
@@ -46,5 +48,7 @@ def scroll(window_info: dict, delta_x: int, delta_y: int) -> None:
         int(delta_y),
         int(delta_x),
     )
-    Quartz.CGEventPost(Quartz.kCGHIDEventTap, event)
+    pid = int(window_info.get("kCGWindowOwnerPID", 0))
+    Quartz.CGEventPostToPid(pid, event)
+    print(f"Scrolled by ({delta_x}, {delta_y}) in window {window_info.get('kCGWindowName', 'Unknown')}")
 
