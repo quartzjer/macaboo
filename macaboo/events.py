@@ -7,25 +7,6 @@ import time
 
 __all__ = ["click_at", "scroll"]
 
-
-def _window_origin(window_info: dict) -> tuple[int, int]:
-    """Return the global origin (x, y) of ``window_info`` in screen coordinates."""
-    bounds = window_info.get("kCGWindowBounds", {})
-    x = int(bounds.get("X", 0))
-    y = int(bounds.get("Y", 0))
-    height = int(bounds.get("Height", 0))
-    
-    # Convert from macOS window coordinates (bottom-left origin) to 
-    # screen coordinates (top-left origin) for CGEvent
-    main_display = Quartz.CGMainDisplayID()
-    screen_height = Quartz.CGDisplayPixelsHigh(main_display)
-    
-    # Window Y is from bottom-left, convert to top-left
-    screen_y = screen_height - y - height
-    
-    return x, screen_y
-
-
 def click_at(window_info: dict, x: int, y: int) -> None:
     """Post a left mouse click at ``(x, y)`` to ``window_info``'s process."""
     pid = int(window_info.get("kCGWindowOwnerPID", 0))
@@ -48,16 +29,14 @@ def click_at(window_info: dict, x: int, y: int) -> None:
         # Small delay to ensure activation
         time.sleep(0.1)
     
-    bounds = window_info["kCGWindowBounds"]
-    origin_x = int(bounds["X"])                # bottom-left
-    origin_y = int(bounds["Y"])
-    height   = int(bounds["Height"])
-
-    # Convert y from the webpage (top-left origin)
-    y_bottom = height - y                  # <-- single, correct flip
-
-    abs_x = origin_x + x
-    abs_y = origin_y + y_bottom                # now in CG global space
+    # Get window bounds and add incoming coordinates
+    bounds = window_info.get("kCGWindowBounds", {})
+    window_x = int(bounds.get("X", 0))
+    window_y = int(bounds.get("Y", 0))
+    
+    # Incoming x/y are relative to window's top-left, so just add them
+    abs_x = window_x + x
+    abs_y = window_y + y
 
     point = Quartz.CGPoint(abs_x, abs_y)
 
@@ -79,7 +58,7 @@ def click_at(window_info: dict, x: int, y: int) -> None:
     Quartz.CGEventPost(Quartz.kCGHIDEventTap, down)
     Quartz.CGEventPost(Quartz.kCGHIDEventTap, up)
     
-    print(f"Clicked at window coords ({x}, {y}) -> screen ({abs_x}, {abs_y}) in {window_info.get('kCGWindowName', 'Unknown')}")
+    print(f"Incoming ({x}, {y}) window ({window_x}, {window_y}) -> screen ({abs_x}, {abs_y}) in {window_info.get('kCGWindowName', 'Unknown')}")
 
 
 def scroll(window_info: dict, delta_x: int, delta_y: int) -> None:

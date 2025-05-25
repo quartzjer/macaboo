@@ -65,8 +65,17 @@ def get_first_window_of_app(pid: int) -> Optional[dict]:
 def capture_window(window: dict, output_path: str) -> None:
     """Capture ``window`` and save it to ``output_path`` as PNG."""
     window_id = window.get("kCGWindowNumber")
+    
+    # Get window bounds
+    bounds = window.get("kCGWindowBounds", {})
+    x = bounds.get("X", 0)
+    y = bounds.get("Y", 0)
+    width = bounds.get("Width", 0)
+    height = bounds.get("Height", 0)
+    window_rect = Quartz.CGRectMake(x, y, width, height)
+    
     image = Quartz.CGWindowListCreateImage(
-        Quartz.CGRectInfinite,
+        window_rect,
         Quartz.kCGWindowListOptionIncludingWindow,
         window_id,
         Quartz.kCGWindowImageDefault,
@@ -92,8 +101,17 @@ def capture_window(window: dict, output_path: str) -> None:
 def capture_window_bytes(window: dict) -> bytes:
     """Capture ``window`` and return PNG bytes."""
     window_id = window.get("kCGWindowNumber")
+    
+    # Get window bounds
+    bounds = window.get("kCGWindowBounds", {})
+    x = bounds.get("X", 0)
+    y = bounds.get("Y", 0)
+    width = bounds.get("Width", 0)
+    height = bounds.get("Height", 0)
+    window_rect = Quartz.CGRectMake(x, y, width, height)
+    
     image = Quartz.CGWindowListCreateImage(
-        Quartz.CGRectInfinite,
+        window_rect,
         Quartz.kCGWindowListOptionIncludingWindow,
         window_id,
         Quartz.kCGWindowImageDefault,
