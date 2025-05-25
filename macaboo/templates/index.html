@@ -31,9 +31,14 @@
     function imageCoords(event) {
       const img = document.getElementById('shot');
       const rect = img.getBoundingClientRect();
-      const x = (event.clientX - rect.left) * (img.naturalWidth / rect.width);
-      const y = (event.clientY - rect.top) * (img.naturalHeight / rect.height);
-      return {x: Math.round(x), y: Math.round(y)};
+      const x = event.clientX - rect.left;
+      const y = event.clientY - rect.top;
+      return {
+        x: Math.round(x), 
+        y: Math.round(y),
+        displayWidth: Math.round(rect.width),
+        displayHeight: Math.round(rect.height)
+      };
     }
 
     document.getElementById('shot').addEventListener('click', async (e) => {

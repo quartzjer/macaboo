@@ -7,7 +7,7 @@ import time
 
 __all__ = ["click_at", "scroll"]
 
-def click_at(window_info: dict, x: int, y: int) -> None:
+def click_at(window_info: dict, x: int, y: int, display_width: int, display_height: int) -> None:
     """Post a left mouse click at ``(x, y)`` to ``window_info``'s process."""
     pid = int(window_info.get("kCGWindowOwnerPID", 0))
     
@@ -29,14 +29,26 @@ def click_at(window_info: dict, x: int, y: int) -> None:
         # Small delay to ensure activation
         time.sleep(0.1)
     
-    # Get window bounds and add incoming coordinates
+    # Get window bounds
     bounds = window_info.get("kCGWindowBounds", {})
     window_x = int(bounds.get("X", 0))
     window_y = int(bounds.get("Y", 0))
+    window_width = int(bounds.get("Width", 0))
+    window_height = int(bounds.get("Height", 0))
     
-    # Incoming x/y are relative to window's top-left, so just add them
-    abs_x = window_x + x
-    abs_y = window_y + y
+    # Scale coordinates from display dimensions to actual window dimensions
+    if display_width > 0 and display_height > 0:
+        scaled_x = int(x * window_width / display_width)
+        scaled_y = int(y * window_height / display_height)
+    else:
+        # Fallback to original coordinates if display dimensions are invalid
+        scaled_x = x
+        scaled_y = y
+        print("Warning: Invalid display dimensions, using original coordinates.")
+    
+    # Add window position to get absolute screen coordinates
+    abs_x = window_x + scaled_x
+    abs_y = window_y + scaled_y
 
     point = Quartz.CGPoint(abs_x, abs_y)
 
@@ -58,7 +70,7 @@ def click_at(window_info: dict, x: int, y: int) -> None:
     Quartz.CGEventPost(Quartz.kCGHIDEventTap, down)
     Quartz.CGEventPost(Quartz.kCGHIDEventTap, up)
     
-    print(f"Incoming ({x}, {y}) window ({window_x}, {window_y}) -> screen ({abs_x}, {abs_y}) in {window_info.get('kCGWindowName', 'Unknown')}")
+    print(f"Display ({x}, {y}) in {display_width}x{display_height} -> window ({scaled_x}, {scaled_y}) in {window_width}x{window_height} -> screen ({abs_x}, {abs_y}) in {window_info.get('kCGWindowName', 'Unknown')}")
 
 
 def scroll(window_info: dict, delta_x: int, delta_y: int) -> None:

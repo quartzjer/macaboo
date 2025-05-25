@@ -32,7 +32,9 @@ def serve_window(window_info: dict, port: int = 6222) -> None:
         data = await request.json()
         x = int(data.get("x", 0))
         y = int(data.get("y", 0))
-        click_at(window_info, x, y)
+        display_width = int(data.get("displayWidth", 0))
+        display_height = int(data.get("displayHeight", 0))
+        click_at(window_info, x, y, display_width, display_height)
         return web.Response(text="ok")
 
     async def handle_scroll(request: web.Request) -> web.Response:
