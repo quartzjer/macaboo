@@ -56,32 +56,24 @@
   </div>
   <script>
     let ws = null;
-    let reloadInterval = null;
     
     function showError() {
       document.getElementById('shot').style.display = 'none';
       document.getElementById('error-container').style.display = 'flex';
-      if (reloadInterval) {
-        clearInterval(reloadInterval);
-        reloadInterval = null;
-      }
     }
     
     function showImage() {
       document.getElementById('shot').style.display = 'block';
       document.getElementById('error-container').style.display = 'none';
-      if (!reloadInterval) {
-        reloadInterval = setInterval(reload, 1000);
-      }
       // Focus the image to capture keyboard events
       document.getElementById('shot').focus();
+      // Load initial screenshot
+      reload();
     }
     
     function reload() {
-      if (ws && ws.readyState === WebSocket.OPEN) {
-        const img = document.getElementById('shot');
-        img.src = '/screenshot.png?' + Date.now();
-      }
+      const img = document.getElementById('shot');
+      img.src = '/screenshot.png?' + Date.now();
     }
     
     function connectWebSocket() {
@@ -109,6 +101,9 @@
         const data = JSON.parse(event.data);
         if (data.status === 'error') {
           console.error('Server error:', data.message);
+        } else {
+          // reload the image on any update
+          reload();
         }
       };
     }
