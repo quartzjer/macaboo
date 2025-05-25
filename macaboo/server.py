@@ -5,7 +5,8 @@ from __future__ import annotations
 import asyncio
 from pathlib import Path
 
-from aiohttp import web
+from aiohttp import web, WSMsgType
+import json
 
 from .events import click_at, scroll
 
@@ -28,27 +29,41 @@ def serve_window(window_info: dict, port: int = 6222) -> None:
         headers = {"Cache-Control": "no-cache, no-store, must-revalidate"}
         return web.Response(body=data, content_type="image/png", headers=headers)
 
-    async def click(request: web.Request) -> web.Response:
-        data = await request.json()
-        x = int(data.get("x", 0))
-        y = int(data.get("y", 0))
-        display_width = int(data.get("displayWidth", 0))
-        display_height = int(data.get("displayHeight", 0))
-        click_at(window_info, x, y, display_width, display_height)
-        return web.Response(text="ok")
-
-    async def handle_scroll(request: web.Request) -> web.Response:
-        data = await request.json()
-        dx = int(data.get("dx", 0))
-        dy = int(data.get("dy", 0))
-        scroll(window_info, dx, dy)
-        return web.Response(text="ok")
+    async def websocket_handler(request: web.Request) -> web.WebSocketResponse:
+        ws = web.WebSocketResponse()
+        await ws.prepare(request)
+        
+        async for msg in ws:
+            if msg.type == WSMsgType.TEXT:
+                try:
+                    data = json.loads(msg.data)
+                    event_type = data.get("type")
+                    
+                    if event_type == "click":
+                        x = int(data.get("x", 0))
+                        y = int(data.get("y", 0))
+                        display_width = int(data.get("displayWidth", 0))
+                        display_height = int(data.get("displayHeight", 0))
+                        click_at(window_info, x, y, display_width, display_height)
+                        await ws.send_str(json.dumps({"status": "ok", "type": "click"}))
+                    
+                    elif event_type == "scroll":
+                        dx = int(data.get("dx", 0))
+                        dy = int(data.get("dy", 0))
+                        scroll(window_info, dx, dy)
+                        await ws.send_str(json.dumps({"status": "ok", "type": "scroll"}))
+                        
+                except (json.JSONDecodeError, KeyError, ValueError) as e:
+                    await ws.send_str(json.dumps({"status": "error", "message": str(e)}))
+            elif msg.type == WSMsgType.ERROR:
+                print(f'WebSocket error: {ws.exception()}')
+        
+        return ws
 
     app = web.Application()
     app.router.add_get("/", index)
     app.router.add_get("/screenshot.png", screenshot)
-    app.router.add_post("/click", click)
-    app.router.add_post("/scroll", handle_scroll)
+    app.router.add_get("/ws", websocket_handler)
 
     loop = asyncio.new_event_loop()
     asyncio.set_event_loop(loop)

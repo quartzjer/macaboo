@@ -10,23 +10,105 @@
       justify-content: center;
       align-items: center;
       height: 100vh;
-      background-color: #f0f0f0; /* Optional: to see the image boundaries */
+      background-color: #f0f0f0;
+      font-family: Arial, sans-serif;
     }
     #shot {
       max-width: 100%;
       max-height: 100vh;
       object-fit: contain;
     }
+    #error-container {
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+      background: white;
+      padding: 2rem;
+      border-radius: 8px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    }
+    #error-container h2 {
+      color: #d32f2f;
+      margin-bottom: 1rem;
+    }
+    #retry-btn {
+      background: #1976d2;
+      color: white;
+      border: none;
+      padding: 0.5rem 1rem;
+      border-radius: 4px;
+      cursor: pointer;
+      margin-top: 1rem;
+    }
+    #retry-btn:hover {
+      background: #1565c0;
+    }
   </style>
 </head>
 <body>
-  <img id="shot" src="/screenshot.png" alt="screenshot"/>
+  <img id="shot" alt="screenshot" style="display: none;"/>
+  <div id="error-container">
+    <h2>Connection Error</h2>
+    <p>Unable to connect to the server. Please check your connection and try again.</p>
+    <button id="retry-btn">Retry Connection</button>
+  </div>
   <script>
-    function reload() {
-      const img = document.getElementById('shot');
-      img.src = '/screenshot.png?' + Date.now();
+    let ws = null;
+    let reloadInterval = null;
+    
+    function showError() {
+      document.getElementById('shot').style.display = 'none';
+      document.getElementById('error-container').style.display = 'flex';
+      if (reloadInterval) {
+        clearInterval(reloadInterval);
+        reloadInterval = null;
+      }
     }
-    setInterval(reload, 1000);
+    
+    function showImage() {
+      document.getElementById('shot').style.display = 'block';
+      document.getElementById('error-container').style.display = 'none';
+      if (!reloadInterval) {
+        reloadInterval = setInterval(reload, 1000);
+      }
+    }
+    
+    function reload() {
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        const img = document.getElementById('shot');
+        img.src = '/screenshot.png?' + Date.now();
+      }
+    }
+    
+    function connectWebSocket() {
+      const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+      const wsUrl = `${protocol}//${window.location.host}/ws`;
+      
+      ws = new WebSocket(wsUrl);
+      
+      ws.onopen = function() {
+        console.log('WebSocket connected');
+        showImage();
+      };
+      
+      ws.onclose = function() {
+        console.log('WebSocket disconnected');
+        showError();
+      };
+      
+      ws.onerror = function(error) {
+        console.log('WebSocket error:', error);
+        showError();
+      };
+      
+      ws.onmessage = function(event) {
+        const data = JSON.parse(event.data);
+        if (data.status === 'error') {
+          console.error('Server error:', data.message);
+        }
+      };
+    }
 
     function imageCoords(event) {
       const img = document.getElementById('shot');
@@ -41,24 +123,32 @@
       };
     }
 
-    document.getElementById('shot').addEventListener('click', async (e) => {
-      const pos = imageCoords(e);
-      await fetch('/click', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(pos)
-      });
+    document.getElementById('shot').addEventListener('click', (e) => {
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        const pos = imageCoords(e);
+        pos.type = 'click';
+        ws.send(JSON.stringify(pos));
+      }
     });
 
-    document.getElementById('shot').addEventListener('wheel', async (e) => {
+    document.getElementById('shot').addEventListener('wheel', (e) => {
       e.preventDefault();
-      const payload = { dx: e.deltaX, dy: e.deltaY };
-      await fetch('/scroll', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      });
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        const payload = { 
+          type: 'scroll',
+          dx: e.deltaX, 
+          dy: e.deltaY 
+        };
+        ws.send(JSON.stringify(payload));
+      }
     });
+    
+    document.getElementById('retry-btn').addEventListener('click', () => {
+      connectWebSocket();
+    });
+    
+    // Initial connection
+    connectWebSocket();
   </script>
 </body>
 </html>
