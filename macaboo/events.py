@@ -7,17 +7,23 @@ import Quartz
 __all__ = ["click_at", "scroll"]
 
 
-def _window_origin(window_info: dict) -> tuple[int, int]:
-    """Return the global origin (x, y) of ``window_info``."""
+def _window_bounds(window_info: dict) -> tuple[int, int, int]:
+    """Return the global origin ``(x, y)`` and height of ``window_info``."""
     bounds = window_info.get("kCGWindowBounds", {})
-    return int(bounds.get("X", 0)), int(bounds.get("Y", 0))
+    origin_x = int(bounds.get("X", 0))
+    origin_y = int(bounds.get("Y", 0))
+    height = int(bounds.get("Height", 0))
+    return origin_x, origin_y, height
 
 
 def click_at(window_info: dict, x: int, y: int) -> None:
     """Post a left mouse click at ``(x, y)`` to ``window_info``'s process."""
-    origin_x, origin_y = _window_origin(window_info)
+    origin_x, origin_y, height = _window_bounds(window_info)
     abs_x = origin_x + x
-    abs_y = origin_y + y
+    # ``CGEventCreateMouseEvent`` expects global coordinates with the origin at
+    # the bottom-left of the main display.  The screenshot shown in the browser
+    # has ``y`` measured from the top of the window, so we need to flip it.
+    abs_y = origin_y + (height - y)
 
     point = Quartz.CGPoint(abs_x, abs_y)
     down = Quartz.CGEventCreateMouseEvent(
