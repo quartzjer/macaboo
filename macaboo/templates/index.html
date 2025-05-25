@@ -17,6 +17,10 @@
       max-width: 100%;
       max-height: 100vh;
       object-fit: contain;
+      outline: none;
+    }
+    #shot:focus {
+      box-shadow: 0 0 0 3px rgba(25, 118, 210, 0.5);
     }
     #error-container {
       display: none;
@@ -124,6 +128,9 @@
     }
 
     document.getElementById('shot').addEventListener('click', (e) => {
+      // Focus the image to capture keyboard events
+      e.target.focus();
+      
       if (ws && ws.readyState === WebSocket.OPEN) {
         const pos = imageCoords(e);
         pos.type = 'click';
@@ -138,6 +145,26 @@
           type: 'scroll',
           dx: e.deltaX, 
           dy: e.deltaY 
+        };
+        ws.send(JSON.stringify(payload));
+      }
+    });
+
+    // Make the image focusable so it can receive keyboard events
+    document.getElementById('shot').setAttribute('tabindex', '0');
+    
+    // Focus the image when clicked to ensure keyboard events are captured
+    document.getElementById('shot').addEventListener('focus', () => {
+      console.log('Image focused - keyboard events will be captured');
+    });
+
+    // Handle keyboard events
+    document.getElementById('shot').addEventListener('keydown', (e) => {
+      e.preventDefault();
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        const payload = {
+          type: 'key',
+          keyCode: e.keyCode
         };
         ws.send(JSON.stringify(payload));
       }

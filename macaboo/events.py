@@ -5,7 +5,7 @@ from Cocoa import NSWorkspace
 
 import time
 
-__all__ = ["click_at", "scroll"]
+__all__ = ["click_at", "scroll", "key_press"]
 
 def click_at(window_info: dict, x: int, y: int, display_width: int, display_height: int) -> None:
     """Post a left mouse click at ``(x, y)`` to ``window_info``'s process."""
@@ -85,4 +85,37 @@ def scroll(window_info: dict, delta_x: int, delta_y: int) -> None:
     )
     Quartz.CGEventPost(Quartz.kCGHIDEventTap, event)
     print(f"Scrolled by ({delta_x}, {delta_y}) in window {window_info.get('kCGWindowName', 'Unknown')}")
+
+
+def key_press(window_info: dict, key_code: int) -> None:
+    """Post a key press event to ``window_info``'s process."""
+    pid = int(window_info.get("kCGWindowOwnerPID", 0))
+    
+    # Activate the target application first
+    workspace = NSWorkspace.sharedWorkspace()
+    running_apps = workspace.runningApplications()
+    target_app = None
+    
+    for app in running_apps:
+        if app.processIdentifier() == pid:
+            target_app = app
+            break
+    
+    if target_app:
+        # Bring app to foreground
+        target_app.activateWithOptions_(0)  # NSApplicationActivateIgnoringOtherApps = 0
+        print(f"Activated app for key press: {target_app.localizedName()}")
+        
+        # Small delay to ensure activation
+        time.sleep(0.1)
+    
+    # Create key down and key up events
+    key_down = Quartz.CGEventCreateKeyboardEvent(None, key_code, True)
+    key_up = Quartz.CGEventCreateKeyboardEvent(None, key_code, False)
+    
+    # Post the events
+    Quartz.CGEventPost(Quartz.kCGHIDEventTap, key_down)
+    Quartz.CGEventPost(Quartz.kCGHIDEventTap, key_up)
+    
+    print(f"Key press: code={key_code} in window {window_info.get('kCGWindowName', 'Unknown')}")
 

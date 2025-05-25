@@ -8,7 +8,7 @@ from pathlib import Path
 from aiohttp import web, WSMsgType
 import json
 
-from .events import click_at, scroll
+from .events import click_at, scroll, key_press
 
 from .screenshot import capture_window_bytes
 
@@ -52,6 +52,14 @@ def serve_window(window_info: dict, port: int = 6222) -> None:
                         dy = int(data.get("dy", 0))
                         scroll(window_info, dx, dy)
                         await ws.send_str(json.dumps({"status": "ok", "type": "scroll"}))
+                    
+                    elif event_type == "key":
+                        key_code = data.get("keyCode")
+                        if key_code is not None:
+                            key_press(window_info, int(key_code))
+                            await ws.send_str(json.dumps({"status": "ok", "type": "key"}))
+                        else:
+                            await ws.send_str(json.dumps({"status": "error", "message": "No key code provided"}))
                         
                 except (json.JSONDecodeError, KeyError, ValueError) as e:
                     await ws.send_str(json.dumps({"status": "error", "message": str(e)}))
