@@ -14,8 +14,8 @@ __all__ = [
     "list_running_apps",
     "choose_app",
     "get_first_window_of_app",
-    "capture_window",
     "capture_window_bytes",
+    "find_app_by_name",
 ]
 
 
@@ -48,6 +48,15 @@ def choose_app(apps):
     return apps[choice]
 
 
+def find_app_by_name(apps, app_name: str):
+    """Find an app by name (case-insensitive). Returns the app if found, None otherwise."""
+    app_name_lower = app_name.lower()
+    for app in apps:
+        if app.localizedName().lower() == app_name_lower:
+            return app
+    return None
+
+
 def get_first_window_of_app(pid: int) -> Optional[dict]:
     """Return the first on-screen window for a given process id."""
     window_list = Quartz.CGWindowListCopyWindowInfo(
@@ -60,43 +69,6 @@ def get_first_window_of_app(pid: int) -> Optional[dict]:
         ):
             return window
     return None
-
-
-def capture_window(window: dict, output_path: str) -> None:
-    """Capture ``window`` and save it to ``output_path`` as PNG."""
-    window_id = window.get("kCGWindowNumber")
-    
-    # Get window bounds
-    bounds = window.get("kCGWindowBounds", {})
-    x = bounds.get("X", 0)
-    y = bounds.get("Y", 0)
-    width = bounds.get("Width", 0)
-    height = bounds.get("Height", 0)
-    window_rect = Quartz.CGRectMake(x, y, width, height)
-    
-    image = Quartz.CGWindowListCreateImage(
-        window_rect,
-        Quartz.kCGWindowListOptionIncludingWindow,
-        window_id,
-        Quartz.kCGWindowImageDefault,
-    )
-    if image is None:
-        print("Failed to capture image.")
-        sys.exit(1)
-
-    url = NSURL.fileURLWithPath_(output_path)
-    dest = Quartz.CGImageDestinationCreateWithURL(
-        url, "public.png", 1, None
-    )
-    properties = {
-        Quartz.kCGImagePropertyDPIWidth: 72,
-        Quartz.kCGImagePropertyDPIHeight: 72,
-    }
-    Quartz.CGImageDestinationAddImage(dest, image, properties)
-    if not Quartz.CGImageDestinationFinalize(dest):
-        print("Failed to finalize image destination.")
-        sys.exit(1)
-
 
 def capture_window_bytes(window: dict) -> bytes:
     """Capture ``window`` and return PNG bytes."""

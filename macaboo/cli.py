@@ -8,7 +8,7 @@ from .screenshot import (
     list_running_apps,
     choose_app,
     get_first_window_of_app,
-    capture_window,
+    find_app_by_name,
 )
 from .server import serve_window
 
@@ -18,10 +18,9 @@ def main(argv: list[str] | None = None) -> int:
         description="Capture a screenshot of a running application window and serve it on the web."
     )
     parser.add_argument(
-        "--output",
-        "-o",
-        default=None,
-        help="Output PNG file (default: '<AppName>.png')",
+        "app_name",
+        nargs="?",
+        help="Name of the application to capture (case-insensitive). If not provided, shows a list to choose from.",
     )
     parser.add_argument(
         "--port",
@@ -36,18 +35,23 @@ def main(argv: list[str] | None = None) -> int:
     if not apps:
         print("No regular applications found.")
         return 1
-    chosen_app = choose_app(apps)
+    
+    if args.app_name:
+        chosen_app = find_app_by_name(apps, args.app_name)
+        if not chosen_app:
+            print(f"No application found matching '{args.app_name}'.")
+            print("Available applications:")
+            for app in apps:
+                print(f"  {app.localizedName()}")
+            return 1
+    else:
+        chosen_app = choose_app(apps)
     pid = chosen_app.processIdentifier()
     print(f"Selected app: {chosen_app.localizedName()} (PID: {pid})")
     window_info = get_first_window_of_app(pid)
     if not window_info:
         print(f"No on-screen window found for {chosen_app.localizedName()}.")
         return 1
-
-    if args.output is not None:
-        output_path = args.output
-        capture_window(window_info, output_path)
-        print(f"Screenshot saved to {output_path}")
 
     print("Starting web server. Press Ctrl+C to stop.")
     serve_window(window_info, args.port)
