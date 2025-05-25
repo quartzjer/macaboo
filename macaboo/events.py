@@ -83,7 +83,6 @@ def scroll(window_info: dict, delta_x: int, delta_y: int) -> None:
         int(delta_y),
         int(delta_x),
     )
-    pid = int(window_info.get("kCGWindowOwnerPID", 0))
-    Quartz.CGEventPostToPid(pid, event)
+    Quartz.CGEventPost(Quartz.kCGHIDEventTap, event)
     print(f"Scrolled by ({delta_x}, {delta_y}) in window {window_info.get('kCGWindowName', 'Unknown')}")
 
