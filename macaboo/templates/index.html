@@ -19,9 +19,6 @@
       object-fit: contain;
       outline: none;
     }
-    #shot:focus {
-      box-shadow: 0 0 0 3px rgba(25, 118, 210, 0.5);
-    }
     #error-container {
       display: none;
       flex-direction: column;
@@ -76,6 +73,8 @@
       if (!reloadInterval) {
         reloadInterval = setInterval(reload, 1000);
       }
+      // Focus the image to capture keyboard events
+      document.getElementById('shot').focus();
     }
     
     function reload() {
@@ -128,9 +127,6 @@
     }
 
     document.getElementById('shot').addEventListener('click', (e) => {
-      // Focus the image to capture keyboard events
-      e.target.focus();
-      
       if (ws && ws.readyState === WebSocket.OPEN) {
         const pos = imageCoords(e);
         pos.type = 'click';
@@ -168,6 +164,26 @@
         };
         ws.send(JSON.stringify(payload));
       }
+    });
+
+    // Handle window focus/blur events
+    let hasFocus = true;
+    
+    window.addEventListener('focus', () => {
+      console.log('Window gained focus');
+      if (!hasFocus && ws && ws.readyState === WebSocket.OPEN) {
+        // Only send focus event when regaining focus
+        const payload = {
+          type: 'focus'
+        };
+        ws.send(JSON.stringify(payload));
+      }
+      hasFocus = true;
+    });
+
+    window.addEventListener('blur', () => {
+      console.log('Window lost focus');
+      hasFocus = false;
     });
     
     document.getElementById('retry-btn').addEventListener('click', () => {

@@ -5,13 +5,35 @@ from Cocoa import NSWorkspace
 
 import time
 
-__all__ = ["click_at", "scroll", "key_press"]
+__all__ = ["click_at", "scroll", "key_press", "bring_app_to_foreground"]
 
-def click_at(window_info: dict, x: int, y: int, display_width: int, display_height: int) -> None:
-    """Post a left mouse click at ``(x, y)`` to ``window_info``'s process."""
+# JS keyCode -> macOS CGKeyCode  (US-QWERTY subset)
+JS_TO_MAC = {
+    8:   51,   # Backspace -> kVK_Delete
+    9:   48,   # Tab
+    13:  36,   # Enter/Return
+    16:  56,   # Shift (left)
+    17:  59,   # Control (left)
+    18:  58,   # Option/Alt (left)
+    27:  53,   # Escape
+    32:  49,   # Space
+    37:  123,  # Left Arrow
+    38:  126,  # Up Arrow
+    39:  124,  # Right Arrow
+    40:  125,  # Down Arrow
+    # alphanumerics
+    **{c: k for (c, k) in zip(range(48, 58),   # '0'–'9'
+                              (29, 18,19,20,21,23,22,26,28,25))},
+    **{c: k for (c, k) in zip(range(65, 91),   # 'A'–'Z'
+                              (0,11,8,2,14,3,5,4,34,38,
+                               40,37,46,45,31,35,12,15,
+                               1,17,32,9,16,7,6,13))}
+}
+
+def bring_app_to_foreground(window_info: dict) -> None:
+    """Bring the application to the foreground."""
     pid = int(window_info.get("kCGWindowOwnerPID", 0))
     
-    # Activate the target application first
     workspace = NSWorkspace.sharedWorkspace()
     running_apps = workspace.runningApplications()
     target_app = None
@@ -28,6 +50,9 @@ def click_at(window_info: dict, x: int, y: int, display_width: int, display_heig
         
         # Small delay to ensure activation
         time.sleep(0.1)
+
+def click_at(window_info: dict, x: int, y: int, display_width: int, display_height: int) -> None:
+    """Post a left mouse click at ``(x, y)`` to ``window_info``'s process."""
     
     # Get window bounds
     bounds = window_info.get("kCGWindowBounds", {})
@@ -89,33 +114,19 @@ def scroll(window_info: dict, delta_x: int, delta_y: int) -> None:
 
 def key_press(window_info: dict, key_code: int) -> None:
     """Post a key press event to ``window_info``'s process."""
-    pid = int(window_info.get("kCGWindowOwnerPID", 0))
-    
-    # Activate the target application first
-    workspace = NSWorkspace.sharedWorkspace()
-    running_apps = workspace.runningApplications()
-    target_app = None
-    
-    for app in running_apps:
-        if app.processIdentifier() == pid:
-            target_app = app
-            break
-    
-    if target_app:
-        # Bring app to foreground
-        target_app.activateWithOptions_(0)  # NSApplicationActivateIgnoringOtherApps = 0
-        print(f"Activated app for key press: {target_app.localizedName()}")
-        
-        # Small delay to ensure activation
-        time.sleep(0.1)
+    # Convert JS keyCode to macOS CGKeyCode
+    mac_key_code = JS_TO_MAC.get(key_code)
+    if mac_key_code is None:
+        print(f"Warning: Unmapped key code {key_code}, attempting to use as-is")
+        mac_key_code = key_code
     
     # Create key down and key up events
-    key_down = Quartz.CGEventCreateKeyboardEvent(None, key_code, True)
-    key_up = Quartz.CGEventCreateKeyboardEvent(None, key_code, False)
+    key_down = Quartz.CGEventCreateKeyboardEvent(None, mac_key_code, True)
+    key_up = Quartz.CGEventCreateKeyboardEvent(None, mac_key_code, False)
     
     # Post the events
     Quartz.CGEventPost(Quartz.kCGHIDEventTap, key_down)
     Quartz.CGEventPost(Quartz.kCGHIDEventTap, key_up)
     
-    print(f"Key press: code={key_code} in window {window_info.get('kCGWindowName', 'Unknown')}")
+    print(f"Key press: JS code={key_code} -> macOS code={mac_key_code} in window {window_info.get('kCGWindowName', 'Unknown')}")
 

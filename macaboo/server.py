@@ -8,7 +8,7 @@ from pathlib import Path
 from aiohttp import web, WSMsgType
 import json
 
-from .events import click_at, scroll, key_press
+from .events import click_at, scroll, key_press, bring_app_to_foreground
 
 from .screenshot import capture_window_bytes
 
@@ -60,6 +60,10 @@ def serve_window(window_info: dict, port: int = 6222) -> None:
                             await ws.send_str(json.dumps({"status": "ok", "type": "key"}))
                         else:
                             await ws.send_str(json.dumps({"status": "error", "message": "No key code provided"}))
+                    
+                    elif event_type == "focus":
+                        bring_app_to_foreground(window_info)
+                        await ws.send_str(json.dumps({"status": "ok", "type": "focus"}))
                         
                 except (json.JSONDecodeError, KeyError, ValueError) as e:
                     await ws.send_str(json.dumps({"status": "error", "message": str(e)}))
