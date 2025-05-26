@@ -19,7 +19,7 @@
       object-fit: contain;
       outline: none;
     }
-    #error-container {
+    #connecting-container {
       display: none;
       flex-direction: column;
       align-items: center;
@@ -29,44 +29,32 @@
       border-radius: 8px;
       box-shadow: 0 2px 10px rgba(0,0,0,0.1);
     }
-    #error-container h2 {
-      color: #d32f2f;
+    #connecting-container h2 {
+      color: #1976d2;
       margin-bottom: 1rem;
-    }
-    #retry-btn {
-      background: #1976d2;
-      color: white;
-      border: none;
-      padding: 0.5rem 1rem;
-      border-radius: 4px;
-      cursor: pointer;
-      margin-top: 1rem;
-    }
-    #retry-btn:hover {
-      background: #1565c0;
     }
   </style>
 </head>
 <body>
   <img id="shot" alt="screenshot" style="display: none;"/>
-  <div id="error-container">
-    <h2>Connection Error</h2>
-    <p>Unable to connect to the server. Please check your connection and try again.</p>
-    <button id="retry-btn">Retry Connection</button>
+  <div id="connecting-container">
+    <h2>Connecting...</h2>
+    <p>Please wait while we establish a connection to the server.</p>
   </div>
   <script>
     let ws = null;
     let quickReloadTimer = null;
     let slowReloadTimer = null;
+    let retryTimer = null;
     
-    function showError() {
+    function showConnecting() {
       document.getElementById('shot').style.display = 'none';
-      document.getElementById('error-container').style.display = 'flex';
+      document.getElementById('connecting-container').style.display = 'flex';
     }
     
     function showImage() {
       document.getElementById('shot').style.display = 'block';
-      document.getElementById('error-container').style.display = 'none';
+      document.getElementById('connecting-container').style.display = 'none';
       // Focus the image to capture keyboard events
       document.getElementById('shot').focus();
       // Load initial screenshot
@@ -89,6 +77,12 @@
     }
     
     function connectWebSocket() {
+      // Clear any existing retry timer
+      if (retryTimer) {
+        clearTimeout(retryTimer);
+        retryTimer = null;
+      }
+      
       const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
       const wsUrl = `${protocol}//${window.location.host}/ws`;
       
@@ -101,12 +95,16 @@
       
       ws.onclose = function() {
         console.log('WebSocket disconnected');
-        showError();
+        showConnecting();
+        // Retry connection after 2 seconds
+        retryTimer = setTimeout(connectWebSocket, 2000);
       };
       
       ws.onerror = function(error) {
         console.log('WebSocket error:', error);
-        showError();
+        showConnecting();
+        // Retry connection after 2 seconds
+        retryTimer = setTimeout(connectWebSocket, 2000);
       };
       
       ws.onmessage = function(event) {
@@ -228,11 +226,8 @@
       hasFocus = false;
     });
     
-    document.getElementById('retry-btn').addEventListener('click', () => {
-      connectWebSocket();
-    });
-    
-    // Initial connection
+    // Initial connection and show connecting message
+    showConnecting();
     connectWebSocket();
   </script>
 </body>
