@@ -128,6 +128,17 @@
       if (ws && ws.readyState === WebSocket.OPEN) {
         const pos = imageCoords(e);
         pos.type = 'click';
+        pos.button = 'left';
+        ws.send(JSON.stringify(pos));
+      }
+    });
+
+    document.getElementById('shot').addEventListener('contextmenu', (e) => {
+      e.preventDefault(); // Prevent the browser context menu
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        const pos = imageCoords(e);
+        pos.type = 'click';
+        pos.button = 'right';
         ws.send(JSON.stringify(pos));
       }
     });
@@ -138,7 +149,8 @@
         const payload = { 
           type: 'scroll',
           dx: e.deltaX, 
-          dy: e.deltaY 
+          dy: e.deltaY,
+          pos: imageCoords(e)
         };
         ws.send(JSON.stringify(payload));
       }
@@ -154,11 +166,18 @@
 
     // Handle keyboard events
     document.getElementById('shot').addEventListener('keydown', (e) => {
-      e.preventDefault();
+      // Skip if control or alt key modifiers are present
+      if (e.ctrlKey || e.altKey) {
+        return;
+      }
+      
       if (ws && ws.readyState === WebSocket.OPEN) {
         const payload = {
           type: 'key',
-          keyCode: e.keyCode
+          keyCode: e.keyCode,
+          key: e.key,
+          code: e.code,
+          shiftKey: e.shiftKey,
         };
         ws.send(JSON.stringify(payload));
       }
