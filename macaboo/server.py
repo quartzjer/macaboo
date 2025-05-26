@@ -88,10 +88,13 @@ class ScreenshotMonitor:
                         if current_frame is not None and self._has_significant_change(self.cached_comparison_frame, current_frame):
                             await self._notify_client()
                             log_debug("Screenshot change detected, notifying client")
-                    
+
+            except asyncio.CancelledError:
+                log_debug("Screenshot monitoring task cancelled")
+                break
             except Exception as e:
                 log_error(f"Screenshot monitoring error: {e}")
-                
+
             await asyncio.sleep(0.1)
             
     async def _notify_client(self):
