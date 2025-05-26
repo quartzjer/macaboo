@@ -56,6 +56,33 @@
   </div>
   <script>
     let ws = null;
+
+    function computeHash(img) {
+      const size = 16;
+      const canvas = document.createElement('canvas');
+      canvas.width = size;
+      canvas.height = size;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(img, 0, 0, size, size);
+      const data = ctx.getImageData(0, 0, size, size).data;
+      const grays = [];
+      for (let i = 0; i < data.length; i += 4) {
+        const r = data[i];
+        const g = data[i + 1];
+        const b = data[i + 2];
+        grays.push(0.299 * r + 0.587 * g + 0.114 * b);
+      }
+      const avg = grays.reduce((a, b) => a + b, 0) / grays.length;
+      let bits = '';
+      for (const g of grays) {
+        bits += g > avg ? '1' : '0';
+      }
+      let hex = '';
+      for (let i = 0; i < bits.length; i += 4) {
+        hex += parseInt(bits.substr(i, 4), 2).toString(16);
+      }
+      return hex.padStart(64, '0');
+    }
     
     function showError() {
       document.getElementById('shot').style.display = 'none';
@@ -73,6 +100,12 @@
     
     function reload() {
       const img = document.getElementById('shot');
+      img.onload = function() {
+        const hash = computeHash(img);
+        if (ws && ws.readyState === WebSocket.OPEN) {
+          ws.send(JSON.stringify({ type: 'hash', hash: hash }));
+        }
+      };
       img.src = '/screenshot.png?' + Date.now();
     }
     
