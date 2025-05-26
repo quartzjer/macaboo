@@ -6,7 +6,7 @@ import sys
 from typing import List, Optional
 
 import Quartz
-from Cocoa import NSURL, NSWorkspace
+from Cocoa import NSWorkspace
 from Foundation import NSMutableData
 from AppKit import NSApplicationActivationPolicyRegular
 
@@ -15,6 +15,7 @@ __all__ = [
     "choose_app",
     "get_first_window_of_app",
     "capture_window_bytes",
+    "capture_window_with_menus_bytes",
     "find_app_by_name",
 ]
 
@@ -86,6 +87,78 @@ def capture_window_bytes(window: dict) -> bytes:
         window_rect,
         Quartz.kCGWindowListOptionIncludingWindow,
         window_id,
+        Quartz.kCGWindowImageDefault,
+    )
+    if image is None:
+        print("Failed to capture image.")
+        sys.exit(1)
+
+    data = NSMutableData.alloc().init()
+    dest = Quartz.CGImageDestinationCreateWithData(
+        data, "public.png", 1, None
+    )
+    properties = {
+        Quartz.kCGImagePropertyDPIWidth: 72,
+        Quartz.kCGImagePropertyDPIHeight: 72,
+    }
+    Quartz.CGImageDestinationAddImage(dest, image, properties)
+    if not Quartz.CGImageDestinationFinalize(dest):
+        print("Failed to finalize image destination.")
+        sys.exit(1)
+    return bytes(data)
+
+
+def list_windows_for_pid(pid: int) -> List[dict]:
+    """Return all on-screen windows belonging to ``pid``."""
+    window_list = Quartz.CGWindowListCopyWindowInfo(
+        Quartz.kCGWindowListOptionOnScreenOnly,
+        Quartz.kCGNullWindowID,
+    )
+    return [w for w in window_list if w.get("kCGWindowOwnerPID") == pid]
+
+
+def _rect_contains(outer: dict, inner: dict) -> bool:
+    """Check if ``inner`` bounds are fully inside ``outer`` bounds."""
+    ob = outer.get("kCGWindowBounds", {})
+    ib = inner.get("kCGWindowBounds", {})
+
+    return (
+        ib.get("X", 0) >= ob.get("X", 0)
+        and ib.get("Y", 0) >= ob.get("Y", 0)
+        and ib.get("X", 0) + ib.get("Width", 0)
+        <= ob.get("X", 0) + ob.get("Width", 0)
+        and ib.get("Y", 0) + ib.get("Height", 0)
+        <= ob.get("Y", 0) + ob.get("Height", 0)
+    )
+
+
+def capture_window_with_menus_bytes(window: dict) -> bytes:
+    """Capture ``window`` plus any of its child windows that fall within it."""
+    pid = window.get("kCGWindowOwnerPID")
+    menu_windows = [w for w in list_windows_for_pid(pid) if _rect_contains(window, w) and w != window]
+
+    bounds = window.get("kCGWindowBounds", {})
+    union_x = bounds.get("X", 0)
+    union_y = bounds.get("Y", 0)
+    union_w = bounds.get("Width", 0)
+    union_h = bounds.get("Height", 0)
+
+    window_ids = [window.get("kCGWindowNumber")]
+
+    for w in menu_windows:
+        window_ids.append(w.get("kCGWindowNumber"))
+        b = w.get("kCGWindowBounds", {})
+        x1 = min(union_x, b.get("X", 0))
+        y1 = min(union_y, b.get("Y", 0))
+        x2 = max(union_x + union_w, b.get("X", 0) + b.get("Width", 0))
+        y2 = max(union_y + union_h, b.get("Y", 0) + b.get("Height", 0))
+        union_x, union_y = x1, y1
+        union_w, union_h = x2 - x1, y2 - y1
+
+    rect = Quartz.CGRectMake(union_x, union_y, union_w, union_h)
+    image = Quartz.CGWindowListCreateImageFromArray(
+        rect,
+        window_ids,
         Quartz.kCGWindowImageDefault,
     )
     if image is None:
