@@ -192,9 +192,9 @@ def serve_window(window_info: dict, port: int = 6222, change_threshold: float = 
                             await ws.send_str(json.dumps({"status": "ok", "type": "key"}))
                         
                         elif event_type == "focus":
-                            log_event("focus", "bringing app to foreground")
+                            log_event("focus", "wakefullness and bringing app to foreground")
+                            await wake_display()
                             bring_app_to_foreground(window_info)
-                            asyncio.create_task(wake_display())
                             await ws.send_str(json.dumps({"status": "ok", "type": "focus"}))
                         
                         elif event_type == "paste":
