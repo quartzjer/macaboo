@@ -3,11 +3,11 @@ from __future__ import annotations
 import time
 
 import Quartz
-from Cocoa import NSWorkspace
+from Cocoa import NSWorkspace, NSPasteboard, NSStringPboardType
 
 from .logger import log_error, log_info, log_debug
 
-__all__ = ["click_at", "scroll", "key_press", "bring_app_to_foreground"]
+__all__ = ["click_at", "scroll", "key_press", "bring_app_to_foreground", "paste_text"]
 
 # JS keyCode -> macOS CGKeyCode  (US-QWERTY subset)
 JS_TO_MAC = {
@@ -136,4 +136,42 @@ def key_press(window_info: dict, key_code: int) -> None:
     
     window_name = window_info.get('kCGWindowName', 'Unknown')
     log_info(f"Key press: JS code={key_code} -> macOS code={mac_key_code} in window {window_name}")
+
+def paste_text(window_info: dict, text: str) -> None:
+    """Send text to the application using pasteboard and paste command."""
+    if not text:
+        return
+    
+    # Save current pasteboard contents
+    pasteboard = NSPasteboard.generalPasteboard()
+    old_contents = pasteboard.stringForType_(NSStringPboardType)
+    
+    # Set new text to pasteboard
+    pasteboard.clearContents()
+    pasteboard.setString_forType_(text, NSStringPboardType)
+    
+    # Send Cmd+V (paste)
+    cmd_down = Quartz.CGEventCreateKeyboardEvent(None, 55, True)   # Cmd key down
+    v_down = Quartz.CGEventCreateKeyboardEvent(None, 9, True)     # V key down  
+    v_up = Quartz.CGEventCreateKeyboardEvent(None, 9, False)      # V key up
+    cmd_up = Quartz.CGEventCreateKeyboardEvent(None, 55, False)   # Cmd key up
+    
+    # Set Cmd modifier for V key events
+    Quartz.CGEventSetFlags(v_down, Quartz.kCGEventFlagMaskCommand)
+    Quartz.CGEventSetFlags(v_up, Quartz.kCGEventFlagMaskCommand)
+    
+    # Post the key sequence
+    Quartz.CGEventPost(Quartz.kCGHIDEventTap, cmd_down)
+    Quartz.CGEventPost(Quartz.kCGHIDEventTap, v_down)
+    Quartz.CGEventPost(Quartz.kCGHIDEventTap, v_up)
+    Quartz.CGEventPost(Quartz.kCGHIDEventTap, cmd_up)
+    
+    # Restore original pasteboard contents after a short delay
+    time.sleep(0.1)
+    if old_contents:
+        pasteboard.clearContents()
+        pasteboard.setString_forType_(old_contents, NSStringPboardType)
+    
+    window_name = window_info.get('kCGWindowName', 'Unknown')
+    log_info(f"Pasted text: '{text}' in window {window_name}")
 

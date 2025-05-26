@@ -164,6 +164,22 @@
       }
     });
 
+    // Handle paste events
+    window.addEventListener('paste', (e) => {
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        const text = e.clipboardData.getData('text');
+        if (text) {
+          const payload = {
+            type: 'paste',
+            text: text
+          };
+          ws.send(JSON.stringify(payload));
+          e.preventDefault(); 
+          console.log('Pasted text sent to server:', text);
+        }
+      }
+    });
+
     // Handle window focus/blur events
     let hasFocus = true;
     
