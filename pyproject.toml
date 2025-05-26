@@ -4,15 +4,23 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "macaboo"
-version = "0.2.0"
+version = "0.2.2"
 description = "CLI utilities for capturing macOS application windows"
 authors = [ { name="Macaboo" } ]
+readme = "README.md"
+license = { file = "LICENSE" }
 requires-python = ">=3.9"
 dependencies = [
     "pyobjc-framework-Quartz",
     "pyobjc-framework-Cocoa",
     "aiohttp",
+    "opencv-python",
+    "numpy",
 ]
 
 [project.scripts]
 macaboo = "macaboo.cli:main"
+
+[project.urls]
+Homepage = "https://github.com/quartzjer/macaboo"
+Repository = "https://github.com/quartzjer/macaboo"
