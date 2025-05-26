@@ -21,7 +21,7 @@ TEMPLATE_PATH = Path(__file__).parent / "templates" / "index.html"
 class ScreenshotMonitor:
     """Monitors screenshot changes and notifies WebSocket client."""
     
-    def __init__(self, window_info: dict, change_threshold: float = 0.01, verbose: bool = False):
+    def __init__(self, window_info: dict, change_threshold: float = 0.005, verbose: bool = False):
         self.window_info = window_info
         self.change_threshold = change_threshold
         self.verbose = verbose

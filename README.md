@@ -12,6 +12,7 @@ with it remotely.
 - Live screenshot streaming via a local HTTP server
 - Mouse clicks, scrolling and key presses sent from the browser
 - Simple command line interface available as `macaboo`
+- Optional capture of context menus that appear within the window
 
 ## Requirements
 

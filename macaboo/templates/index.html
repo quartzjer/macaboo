@@ -56,6 +56,8 @@
   </div>
   <script>
     let ws = null;
+    let quickReloadTimer = null;
+    let slowReloadTimer = null;
     
     function showError() {
       document.getElementById('shot').style.display = 'none';
@@ -74,6 +76,16 @@
     function reload() {
       const img = document.getElementById('shot');
       img.src = '/screenshot.png?' + Date.now();
+    }
+    
+    function scheduleReloads() {
+      // Cancel existing timers
+      if (quickReloadTimer) clearTimeout(quickReloadTimer);
+      if (slowReloadTimer) clearTimeout(slowReloadTimer);
+      
+      // Schedule new reloads
+      quickReloadTimer = setTimeout(reload, 10);
+      slowReloadTimer = setTimeout(reload, 1000);
     }
     
     function connectWebSocket() {
@@ -103,10 +115,7 @@
         if (data.status === 'error') {
           console.error('Server error:', data.message);
         } else {
-          // reload the image on any update after 10ms
-          setTimeout(() => {
-            reload();
-          }, 10);
+          scheduleReloads();
         }
       };
     }
