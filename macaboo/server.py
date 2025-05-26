@@ -16,7 +16,7 @@ from .screenshot import capture_window_bytes
 
 __all__ = ["serve_window"]
 
-TEMPLATE_PATH = Path(__file__).parent / "templates" / "index.html"
+STATIC_PATH = Path(__file__).parent / "static"
 
 class ScreenshotMonitor:
     """Monitors screenshot changes and notifies WebSocket client."""
@@ -127,7 +127,7 @@ def serve_window(window_info: dict, port: int = 6222, change_threshold: float = 
     monitor = ScreenshotMonitor(window_info, change_threshold=change_threshold, verbose=verbose)
 
     async def index(_: web.Request) -> web.Response:
-        html = TEMPLATE_PATH.read_text()
+        html = (STATIC_PATH / "index.html").read_text()
         log_client("request", "index page served")
         return web.Response(text=html, content_type="text/html")
 
@@ -136,6 +136,16 @@ def serve_window(window_info: dict, port: int = 6222, change_threshold: float = 
         headers = {"Cache-Control": "no-cache, no-store, must-revalidate"}
         log_client("request", f"screenshot served ({len(data)} bytes)")
         return web.Response(body=data, content_type="image/png", headers=headers)
+
+    async def favicon(_: web.Request) -> web.Response:
+        favicon_path = STATIC_PATH / "favicon.ico"
+        if favicon_path.exists():
+            data = favicon_path.read_bytes()
+            log_client("request", "favicon served")
+            return web.Response(body=data, content_type="image/x-icon")
+        else:
+            log_client("request", "favicon not found")
+            return web.Response(status=404)
 
     async def websocket_handler(request: web.Request) -> web.WebSocketResponse:
         ws = web.WebSocketResponse()
@@ -210,6 +220,7 @@ def serve_window(window_info: dict, port: int = 6222, change_threshold: float = 
     app = web.Application()
     app.router.add_get("/", index)
     app.router.add_get("/screenshot.png", screenshot)
+    app.router.add_get("/favicon.ico", favicon)
     app.router.add_get("/ws", websocket_handler)
     
     app.on_startup.append(startup_handler)

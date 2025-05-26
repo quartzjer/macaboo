@@ -1,6 +1,10 @@
-# Macaboo
+# macaboo
 
-**Macaboo** is a small Python utility for macOS that mirrors any running GUI
+<p align="center">
+  <img src="macaboo/static/images/macaboo.png" alt="macaboo icon, a cute ghost holding a macbook" width="256" height="256">
+</p>
+
+**macaboo** is a small Python utility for macOS that mirrors any running GUI
 application to a browser window. It captures screenshots of an application's
 frontmost window and exposes them via a lightweight web server. The page also
 forwards mouse and keyboard events back to the application so you can interact
