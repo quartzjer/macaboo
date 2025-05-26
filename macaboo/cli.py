@@ -50,21 +50,22 @@ def main(argv: list[str] | None = None) -> int:
         chosen_app = find_app_by_name(apps, args.app_name)
         if not chosen_app:
             log_error(f"No application found matching '{args.app_name}'.")
-            print("Available applications:")
+            log_error("Available applications:")
             for app in apps:
-                print(f"  {app.localizedName()}")
+                log_error(f"  {app.localizedName()}")
             return 1
     else:
         chosen_app = choose_app(apps)
+        if chosen_app is None:
+            return 1
     pid = chosen_app.processIdentifier()
     log_info(f"Selected app: {chosen_app.localizedName()} (PID: {pid})")
-    print(f"Selected app: {chosen_app.localizedName()} (PID: {pid})")
     window_info = get_first_window_of_app(pid)
     if not window_info:
         log_error(f"No on-screen window found for {chosen_app.localizedName()}.")
         return 1
 
-    print("Starting web server. Press Ctrl+C to stop.")
+    log_info("Starting web server. Press Ctrl+C to stop.")
     serve_window(window_info, args.port, verbose=args.verbose)
     return 0
 

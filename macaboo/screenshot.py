@@ -2,10 +2,11 @@
 
 from __future__ import annotations
 
-import sys
 import asyncio
 import subprocess
 from typing import List, Optional
+
+from .logger import log_error
 
 import Quartz
 from Cocoa import NSWorkspace
@@ -60,11 +61,11 @@ def choose_app(apps):
     try:
         choice = int(input("Choose an application by index: "))
     except ValueError:
-        print("Invalid input. Please enter a number.")
-        sys.exit(1)
+        log_error("Invalid input. Please enter a number.")
+        return None
     if choice < 0 or choice >= len(apps):
-        print("Invalid choice. Exiting.")
-        sys.exit(1)
+        log_error("Invalid choice. Exiting.")
+        return None
     return apps[choice]
 
 
@@ -90,7 +91,7 @@ def get_first_window_of_app(pid: int) -> Optional[dict]:
             return window
     return None
 
-def capture_window_bytes(window: dict) -> bytes:
+def capture_window_bytes(window: dict) -> Optional[bytes]:
     """Capture the target window and any of its child windows (like menus, dialogs)."""
     bounds = window.get("kCGWindowBounds", {})
     x = bounds.get("X", 0)
@@ -115,8 +116,8 @@ def capture_window_bytes(window: dict) -> bytes:
         if target_window_id:
             same_process_window_ids.append(target_window_id)
         else:
-            print("Error: Target window ID not found.")
-            sys.exit(1)
+            log_error("Error: Target window ID not found.")
+            return None
 
     window_rect = Quartz.CGRectMake(x, y, width, height)
     image = Quartz.CGWindowListCreateImageFromArray(
@@ -126,8 +127,8 @@ def capture_window_bytes(window: dict) -> bytes:
     )
 
     if image is None:
-        print("Failed to capture image.")
-        sys.exit(1)
+        log_error("Failed to capture image.")
+        return None
 
     data = NSMutableData.alloc().init()
     dest = Quartz.CGImageDestinationCreateWithData(
@@ -139,6 +140,6 @@ def capture_window_bytes(window: dict) -> bytes:
     }
     Quartz.CGImageDestinationAddImage(dest, image, properties)
     if not Quartz.CGImageDestinationFinalize(dest):
-        print("Failed to finalize image destination.")
-        sys.exit(1)
+        log_error("Failed to finalize image destination.")
+        return None
     return bytes(data)

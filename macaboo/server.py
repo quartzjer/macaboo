@@ -9,6 +9,7 @@ from pathlib import Path
 import cv2
 import numpy as np
 from aiohttp import web, WSMsgType
+from typing import Optional
 
 from .events import (
     click_at,
@@ -67,8 +68,10 @@ class ScreenshotMonitor:
             
         return has_change
         
-    def _bytes_to_frame(self, screenshot_bytes: bytes) -> np.ndarray:
+    def _bytes_to_frame(self, screenshot_bytes: Optional[bytes]) -> Optional[np.ndarray]:
         """Convert PNG bytes to OpenCV frame (numpy array)."""
+        if screenshot_bytes is None:
+            return None
         nparr = np.frombuffer(screenshot_bytes, np.uint8)
         frame = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
         return frame
@@ -79,11 +82,12 @@ class ScreenshotMonitor:
             try:
                 if self.cached_comparison_frame is not None:
                     screenshot_bytes = capture_window_bytes(self.window_info)
-                    current_frame = self._bytes_to_frame(screenshot_bytes)
-                    
-                    if self._has_significant_change(self.cached_comparison_frame, current_frame):
-                        await self._notify_client()
-                        log_debug("Screenshot change detected, notifying client")
+                    if screenshot_bytes is not None:
+                        current_frame = self._bytes_to_frame(screenshot_bytes)
+
+                        if current_frame is not None and self._has_significant_change(self.cached_comparison_frame, current_frame):
+                            await self._notify_client()
+                            log_debug("Screenshot change detected, notifying client")
                     
             except Exception as e:
                 log_error(f"Screenshot monitoring error: {e}")
@@ -123,7 +127,12 @@ class ScreenshotMonitor:
     def get_current_screenshot(self) -> bytes:
         """Get the current screenshot bytes and cache them as served."""
         screenshot_bytes = capture_window_bytes(self.window_info)
-        self.cached_comparison_frame = self._bytes_to_frame(screenshot_bytes)
+        if screenshot_bytes is None:
+            log_error("Failed to capture screenshot")
+            return b""
+        frame = self._bytes_to_frame(screenshot_bytes)
+        if frame is not None:
+            self.cached_comparison_frame = frame
         log_debug(f"Screenshot captured: {len(screenshot_bytes)} bytes")
         return screenshot_bytes
 
@@ -235,5 +244,5 @@ def serve_window(window_info: dict, port: int = 6222, change_threshold: float = 
     app.on_cleanup.append(cleanup_handler)
 
     log_info(f"Starting server on http://localhost:{port}")
-    print(f"Serving on http://localhost:{port}")
+    log_info(f"Serving on http://localhost:{port}")
     web.run_app(app, host="0.0.0.0", port=port)
