@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import sys
+import asyncio
+import subprocess
 from typing import List, Optional
 
 import Quartz
@@ -16,6 +18,7 @@ __all__ = [
     "get_first_window_of_app",
     "capture_window_bytes",
     "find_app_by_name",
+    "wake_display",
 ]
  
 
@@ -30,6 +33,23 @@ def list_running_apps():
     ]
     regular_apps.sort(key=lambda app: app.localizedName())
     return regular_apps
+
+
+async def wake_display(duration: int = 2) -> None:
+    """Wake the display using the ``caffeinate`` command line tool.
+
+    The command is started asynchronously so that it doesn't block the
+    event loop. Failures are ignored quietly.
+    """
+    try:
+        await asyncio.create_subprocess_exec(
+            "caffeinate", "-u", "-t", str(duration),
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
+    except Exception:
+        # ``caffeinate`` may not be available or the call might fail.
+        pass
 
 
 def choose_app(apps):
@@ -77,17 +97,13 @@ def capture_window_bytes(window: dict) -> bytes:
     y = bounds.get("Y", 0)
     width = bounds.get("Width", 0)
     height = bounds.get("Height", 0)
-    
-    # Get the target window's PID
+
     target_pid = window.get("kCGWindowOwnerPID")
-    
-    # Get all on-screen windows
+
     all_windows_list = Quartz.CGWindowListCopyWindowInfo(
         Quartz.kCGWindowListOptionOnScreenOnly, Quartz.kCGNullWindowID
     )
-    
-    # Find all window IDs belonging to the same process that are on-screen
-    # and have a layer (i.e., are actual visible windows, not off-screen buffers)
+
     same_process_window_ids = []
     for win_info in all_windows_list:
         if win_info.get("kCGWindowOwnerPID") == target_pid and \
@@ -102,16 +118,13 @@ def capture_window_bytes(window: dict) -> bytes:
             print("Error: Target window ID not found.")
             sys.exit(1)
 
-    # Define the capture rectangle based on the main window's bounds
     window_rect = Quartz.CGRectMake(x, y, width, height)
-    
-    # Capture the specified windows composited together within the given rectangle
     image = Quartz.CGWindowListCreateImageFromArray(
         window_rect,
         same_process_window_ids,
         Quartz.kCGWindowImageDefault,
     )
-    
+
     if image is None:
         print("Failed to capture image.")
         sys.exit(1)

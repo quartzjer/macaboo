@@ -10,9 +10,16 @@ import cv2
 import numpy as np
 from aiohttp import web, WSMsgType
 
-from .events import click_at, move_pointer, scroll, key_press, bring_app_to_foreground, paste_text
+from .events import (
+    click_at,
+    move_pointer,
+    scroll,
+    key_press,
+    bring_app_to_foreground,
+    paste_text,
+)
 from .logger import log_error, log_info, log_debug, log_event, log_client
-from .screenshot import capture_window_bytes
+from .screenshot import capture_window_bytes, wake_display
 
 __all__ = ["serve_window"]
 
@@ -187,6 +194,7 @@ def serve_window(window_info: dict, port: int = 6222, change_threshold: float = 
                         elif event_type == "focus":
                             log_event("focus", "bringing app to foreground")
                             bring_app_to_foreground(window_info)
+                            asyncio.create_task(wake_display())
                             await ws.send_str(json.dumps({"status": "ok", "type": "focus"}))
                         
                         elif event_type == "paste":
