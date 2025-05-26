@@ -98,12 +98,15 @@
       };
       
       ws.onmessage = function(event) {
+        console.log('WebSocket message received:', event.data);
         const data = JSON.parse(event.data);
         if (data.status === 'error') {
           console.error('Server error:', data.message);
         } else {
-          // reload the image on any update
-          reload();
+          // reload the image on any update after 10ms
+          setTimeout(() => {
+            reload();
+          }, 10);
         }
       };
     }

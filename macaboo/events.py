@@ -1,9 +1,11 @@
 from __future__ import annotations
 
+import time
+
 import Quartz
 from Cocoa import NSWorkspace
 
-import time
+from .logger import log_error, log_info, log_debug
 
 __all__ = ["click_at", "scroll", "key_press", "bring_app_to_foreground"]
 
@@ -46,10 +48,12 @@ def bring_app_to_foreground(window_info: dict) -> None:
     if target_app:
         # Bring app to foreground
         target_app.activateWithOptions_(0)  # NSApplicationActivateIgnoringOtherApps = 0
-        print(f"Activated app: {target_app.localizedName()}")
+        log_info(f"Activated app: {target_app.localizedName()}")
         
         # Small delay to ensure activation
         time.sleep(0.1)
+    else:
+        log_error(f"Could not find app with PID {pid} to bring to foreground")
 
 def click_at(window_info: dict, x: int, y: int, display_width: int, display_height: int) -> None:
     """Post a left mouse click at ``(x, y)`` to ``window_info``'s process."""
@@ -69,7 +73,7 @@ def click_at(window_info: dict, x: int, y: int, display_width: int, display_heig
         # Fallback to original coordinates if display dimensions are invalid
         scaled_x = x
         scaled_y = y
-        print("Warning: Invalid display dimensions, using original coordinates.")
+        log_error("Invalid display dimensions, using original coordinates.")
     
     # Add window position to get absolute screen coordinates
     abs_x = window_x + scaled_x
@@ -95,7 +99,8 @@ def click_at(window_info: dict, x: int, y: int, display_width: int, display_heig
     Quartz.CGEventPost(Quartz.kCGHIDEventTap, down)
     Quartz.CGEventPost(Quartz.kCGHIDEventTap, up)
     
-    print(f"Display ({x}, {y}) in {display_width}x{display_height} -> window ({scaled_x}, {scaled_y}) in {window_width}x{window_height} -> screen ({abs_x}, {abs_y}) in {window_info.get('kCGWindowName', 'Unknown')}")
+    window_name = window_info.get('kCGWindowName', 'Unknown')
+    log_info(f"Click: display ({x}, {y}) in {display_width}x{display_height} -> window ({scaled_x}, {scaled_y}) in {window_width}x{window_height} -> screen ({abs_x}, {abs_y}) in {window_name}")
 
 
 def scroll(window_info: dict, delta_x: int, delta_y: int) -> None:
@@ -109,7 +114,8 @@ def scroll(window_info: dict, delta_x: int, delta_y: int) -> None:
         int(delta_x),
     )
     Quartz.CGEventPost(Quartz.kCGHIDEventTap, event)
-    print(f"Scrolled by ({delta_x}, {delta_y}) in window {window_info.get('kCGWindowName', 'Unknown')}")
+    window_name = window_info.get('kCGWindowName', 'Unknown')
+    log_info(f"Scroll: delta ({delta_x}, {delta_y}) in window {window_name}")
 
 
 def key_press(window_info: dict, key_code: int) -> None:
@@ -117,7 +123,7 @@ def key_press(window_info: dict, key_code: int) -> None:
     # Convert JS keyCode to macOS CGKeyCode
     mac_key_code = JS_TO_MAC.get(key_code)
     if mac_key_code is None:
-        print(f"Warning: Unmapped key code {key_code}, attempting to use as-is")
+        log_error(f"Unmapped key code {key_code}, attempting to use as-is")
         mac_key_code = key_code
     
     # Create key down and key up events
@@ -128,5 +134,6 @@ def key_press(window_info: dict, key_code: int) -> None:
     Quartz.CGEventPost(Quartz.kCGHIDEventTap, key_down)
     Quartz.CGEventPost(Quartz.kCGHIDEventTap, key_up)
     
-    print(f"Key press: JS code={key_code} -> macOS code={mac_key_code} in window {window_info.get('kCGWindowName', 'Unknown')}")
+    window_name = window_info.get('kCGWindowName', 'Unknown')
+    log_info(f"Key press: JS code={key_code} -> macOS code={mac_key_code} in window {window_name}")
 

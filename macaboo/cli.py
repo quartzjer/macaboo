@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 
+from .logger import setup_logging, log_error, log_info
 from .screenshot import (
     list_running_apps,
     choose_app,
@@ -29,17 +30,26 @@ def main(argv: list[str] | None = None) -> int:
         default=6222,
         help="Port to serve the web page on (default: 6222)",
     )
+    parser.add_argument(
+        "--verbose",
+        "-v",
+        action="store_true",
+        help="Enable verbose logging (shows all events and debugging info)",
+    )
     args = parser.parse_args(argv)
+
+    # Set up logging based on verbose flag
+    setup_logging(verbose=args.verbose)
 
     apps = list_running_apps()
     if not apps:
-        print("No regular applications found.")
+        log_error("No regular applications found.")
         return 1
     
     if args.app_name:
         chosen_app = find_app_by_name(apps, args.app_name)
         if not chosen_app:
-            print(f"No application found matching '{args.app_name}'.")
+            log_error(f"No application found matching '{args.app_name}'.")
             print("Available applications:")
             for app in apps:
                 print(f"  {app.localizedName()}")
@@ -47,14 +57,15 @@ def main(argv: list[str] | None = None) -> int:
     else:
         chosen_app = choose_app(apps)
     pid = chosen_app.processIdentifier()
+    log_info(f"Selected app: {chosen_app.localizedName()} (PID: {pid})")
     print(f"Selected app: {chosen_app.localizedName()} (PID: {pid})")
     window_info = get_first_window_of_app(pid)
     if not window_info:
-        print(f"No on-screen window found for {chosen_app.localizedName()}.")
+        log_error(f"No on-screen window found for {chosen_app.localizedName()}.")
         return 1
 
     print("Starting web server. Press Ctrl+C to stop.")
-    serve_window(window_info, args.port)
+    serve_window(window_info, args.port, verbose=args.verbose)
     return 0
 
 
