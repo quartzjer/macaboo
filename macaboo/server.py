@@ -3,6 +3,9 @@ from __future__ import annotations
 """Async HTTP server to display screenshots."""
 
 import asyncio
+import hashlib
+import threading
+import time
 from pathlib import Path
 
 from aiohttp import web, WSMsgType
@@ -19,15 +22,15 @@ TEMPLATE_PATH = Path(__file__).parent / "templates" / "index.html"
 
 class ScreenshotMonitor:
     """Monitors screenshot changes and notifies WebSocket client."""
-
+    
     def __init__(self, window_info: dict, change_threshold: float = 0.01, debug: bool = False):
         self.window_info = window_info
         self.change_threshold = change_threshold
         self.debug = debug
+        self.previous_frame = None
         self.current_screenshot = None
         self.client_ws = None
         self.monitor_task = None
-        self.last_client_hash = None
         
     def set_client(self, ws):
         """Set the WebSocket client to receive updates."""
@@ -61,32 +64,23 @@ class ScreenshotMonitor:
         nparr = np.frombuffer(screenshot_bytes, np.uint8)
         frame = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
         return frame
-
-    def _compute_hash(self, screenshot_bytes: bytes) -> str:
-        """Return a simple average hash for the screenshot."""
-        nparr = np.frombuffer(screenshot_bytes, np.uint8)
-        img = cv2.imdecode(nparr, cv2.IMREAD_GRAYSCALE)
-        img = cv2.resize(img, (16, 16), interpolation=cv2.INTER_AREA)
-        avg = img.mean()
-        diff = img > avg
-        bits = ''.join('1' if b else '0' for b in diff.flatten())
-        return hex(int(bits, 2))[2:].rjust(64, '0')
         
     async def _monitor_loop(self):
         """Async loop that checks for screenshot changes."""
         while True:
             try:
                 screenshot_bytes = capture_window_bytes(self.window_info)
-                current_hash = self._compute_hash(screenshot_bytes)
-
-                if self.last_client_hash is None:
+                current_frame = self._bytes_to_frame(screenshot_bytes)
+                
+                if self.previous_frame is None:
                     if self.debug:
                         print("First screenshot captured")
-                elif current_hash != self.last_client_hash:
+                elif self._has_significant_change(self.previous_frame, current_frame):
                     await self._notify_client()
                     if self.debug:
-                        print("Screenshot hash mismatch, notifying client")
+                        print("Screenshot change detected, notifying client")
 
+                self.previous_frame = current_frame
                 self.current_screenshot = screenshot_bytes
                     
             except Exception as e:
@@ -108,6 +102,8 @@ class ScreenshotMonitor:
         """Force capture and send screenshot update to client."""
         try:
             screenshot_bytes = capture_window_bytes(self.window_info)
+            current_frame = self._bytes_to_frame(screenshot_bytes)
+            self.previous_frame = current_frame
             self.current_screenshot = screenshot_bytes
             await self._notify_client()
         except Exception as e:
@@ -160,11 +156,7 @@ def serve_window(window_info: dict, port: int = 6222, change_threshold: float = 
                         data = json.loads(msg.data)
                         event_type = data.get("type")
                         
-                        if event_type == "hash":
-                            monitor.last_client_hash = str(data.get("hash"))
-                            await ws.send_str(json.dumps({"status": "ok", "type": "hash"}))
-
-                        elif event_type == "click":
+                        if event_type == "click":
                             x = int(data.get("x", 0))
                             y = int(data.get("y", 0))
                             display_width = int(data.get("displayWidth", 0))
