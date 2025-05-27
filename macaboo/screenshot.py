@@ -8,8 +8,6 @@ from typing import List, Optional
 
 from .logger import log_error
 
-from contextlib import contextmanager
-
 import Quartz
 from Cocoa import NSWorkspace
 from Foundation import NSMutableData
@@ -93,20 +91,6 @@ def get_first_window_of_app(pid: int) -> Optional[dict]:
             return window
     return None
 
-
-@contextmanager
-def cg_image_resource(create_func, *args, **kwargs):
-    """Context manager that releases a Core Graphics resource."""
-    resource = create_func(*args, **kwargs)
-    if resource is None:
-        yield None
-        return
-    try:
-        yield resource
-    finally:
-        Quartz.CFRelease(resource)
-
-
 def capture_window_bytes(window: dict) -> Optional[bytes]:
     """Capture the target window and any of its child windows (like menus, dialogs)."""
     bounds = window.get("kCGWindowBounds", {})
@@ -136,36 +120,26 @@ def capture_window_bytes(window: dict) -> Optional[bytes]:
             return None
 
     window_rect = Quartz.CGRectMake(x, y, width, height)
-
-    with cg_image_resource(
-        Quartz.CGWindowListCreateImageFromArray,
+    image = Quartz.CGWindowListCreateImageFromArray(
         window_rect,
         same_process_window_ids,
         Quartz.kCGWindowImageDefault,
-    ) as image:
-        if image is None:
-            log_error("Failed to capture image.")
-            return None
+    )
 
-        data = NSMutableData.alloc().init()
+    if image is None:
+        log_error("Failed to capture image.")
+        return None
 
-        with cg_image_resource(
-            Quartz.CGImageDestinationCreateWithData,
-            data,
-            "public.png",
-            1,
-            None,
-        ) as dest:
-            if dest is None:
-                log_error("Failed to create image destination.")
-                return None
-
-            properties = {
-                Quartz.kCGImagePropertyDPIWidth: 72,
-                Quartz.kCGImagePropertyDPIHeight: 72,
-            }
-            Quartz.CGImageDestinationAddImage(dest, image, properties)
-            if not Quartz.CGImageDestinationFinalize(dest):
-                log_error("Failed to finalize image destination.")
-                return None
-            return bytes(data)
+    data = NSMutableData.alloc().init()
+    dest = Quartz.CGImageDestinationCreateWithData(
+        data, "public.png", 1, None
+    )
+    properties = {
+        Quartz.kCGImagePropertyDPIWidth: 72,
+        Quartz.kCGImagePropertyDPIHeight: 72,
+    }
+    Quartz.CGImageDestinationAddImage(dest, image, properties)
+    if not Quartz.CGImageDestinationFinalize(dest):
+        log_error("Failed to finalize image destination.")
+        return None
+    return bytes(data)
