@@ -6,6 +6,8 @@ import asyncio
 import subprocess
 from typing import List, Optional
 
+import objc
+
 from .logger import log_error
 
 import Quartz
@@ -43,11 +45,13 @@ async def wake_display(duration: int = 2) -> None:
     event loop. Failures are ignored quietly.
     """
     try:
-        await asyncio.create_subprocess_exec(
+        proc = await asyncio.create_subprocess_exec(
             "caffeinate", "-u", "-t", str(duration),
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
         )
+        # Reap the process when it exits to avoid zombies
+        asyncio.create_task(proc.wait())
     except Exception:
         # ``caffeinate`` may not be available or the call might fail.
         pass
@@ -93,53 +97,58 @@ def get_first_window_of_app(pid: int) -> Optional[dict]:
 
 def capture_window_bytes(window: dict) -> Optional[bytes]:
     """Capture the target window and any of its child windows (like menus, dialogs)."""
-    bounds = window.get("kCGWindowBounds", {})
-    x = bounds.get("X", 0)
-    y = bounds.get("Y", 0)
-    width = bounds.get("Width", 0)
-    height = bounds.get("Height", 0)
+    with objc.autorelease_pool():
+        bounds = window.get("kCGWindowBounds", {})
+        x = bounds.get("X", 0)
+        y = bounds.get("Y", 0)
+        width = bounds.get("Width", 0)
+        height = bounds.get("Height", 0)
 
-    target_pid = window.get("kCGWindowOwnerPID")
+        target_pid = window.get("kCGWindowOwnerPID")
 
-    all_windows_list = Quartz.CGWindowListCopyWindowInfo(
-        Quartz.kCGWindowListOptionOnScreenOnly, Quartz.kCGNullWindowID
-    )
+        all_windows_list = Quartz.CGWindowListCopyWindowInfo(
+            Quartz.kCGWindowListOptionOnScreenOnly, Quartz.kCGNullWindowID
+        )
 
-    same_process_window_ids = []
-    for win_info in all_windows_list:
-        if win_info.get("kCGWindowOwnerPID") == target_pid and \
-           win_info.get("kCGWindowLayer", -1) >= 0:
-            same_process_window_ids.append(win_info.get("kCGWindowNumber"))
+        same_process_window_ids = []
+        for win_info in all_windows_list:
+            if win_info.get("kCGWindowOwnerPID") == target_pid and \
+               win_info.get("kCGWindowLayer", -1) >= 0:
+                same_process_window_ids.append(win_info.get("kCGWindowNumber"))
 
-    if not same_process_window_ids:
-        target_window_id = window.get("kCGWindowNumber")
-        if target_window_id:
-            same_process_window_ids.append(target_window_id)
-        else:
-            log_error("Error: Target window ID not found.")
+        if not same_process_window_ids:
+            target_window_id = window.get("kCGWindowNumber")
+            if target_window_id:
+                same_process_window_ids.append(target_window_id)
+            else:
+                log_error("Error: Target window ID not found.")
+                return None
+
+        window_rect = Quartz.CGRectMake(x, y, width, height)
+        image = Quartz.CGWindowListCreateImageFromArray(
+            window_rect,
+            same_process_window_ids,
+            Quartz.kCGWindowImageDefault,
+        )
+
+        if image is None:
+            log_error("Failed to capture image.")
             return None
 
-    window_rect = Quartz.CGRectMake(x, y, width, height)
-    image = Quartz.CGWindowListCreateImageFromArray(
-        window_rect,
-        same_process_window_ids,
-        Quartz.kCGWindowImageDefault,
-    )
-
-    if image is None:
-        log_error("Failed to capture image.")
-        return None
-
-    data = NSMutableData.alloc().init()
-    dest = Quartz.CGImageDestinationCreateWithData(
-        data, "public.png", 1, None
-    )
-    properties = {
-        Quartz.kCGImagePropertyDPIWidth: 72,
-        Quartz.kCGImagePropertyDPIHeight: 72,
-    }
-    Quartz.CGImageDestinationAddImage(dest, image, properties)
-    if not Quartz.CGImageDestinationFinalize(dest):
-        log_error("Failed to finalize image destination.")
-        return None
-    return bytes(data)
+        data = NSMutableData.alloc().init()
+        dest = Quartz.CGImageDestinationCreateWithData(
+            data, "public.png", 1, None
+        )
+        properties = {
+            Quartz.kCGImagePropertyDPIWidth: 72,
+            Quartz.kCGImagePropertyDPIHeight: 72,
+        }
+        Quartz.CGImageDestinationAddImage(dest, image, properties)
+        if not Quartz.CGImageDestinationFinalize(dest):
+            log_error("Failed to finalize image destination.")
+            return None
+        screenshot_bytes = bytes(data)
+        Quartz.CFRelease(dest)
+        Quartz.CGImageRelease(image)
+        Quartz.CFRelease(data)
+        return screenshot_bytes
