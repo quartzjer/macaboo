@@ -142,4 +142,4 @@ def capture_window_bytes(window: dict) -> Optional[bytes]:
     if not Quartz.CGImageDestinationFinalize(dest):
         log_error("Failed to finalize image destination.")
         return None
-    return bytes(data)
+    return bytearray(data)[:]
