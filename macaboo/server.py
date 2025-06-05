@@ -205,7 +205,7 @@ def serve_window(window_info: dict, port: int = 6222, change_threshold: float = 
                         
                         elif event_type == "focus":
                             log_event("focus", "wakefullness and bringing app to foreground")
-                            await wake_display()
+                            await wake_display(60)
                             bring_app_to_foreground(window_info)
                             await ws.send_str(json.dumps({"status": "ok", "type": "focus"}))
                         
